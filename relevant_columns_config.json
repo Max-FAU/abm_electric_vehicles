@@ -1,0 +1,18 @@
+{
+"relevant_columns":[
+  "TRIPNUMBER",
+  "LONGITUDE",
+  "LATITUDE",
+  "ID_PANELSESSION",
+  "SPEED",
+  "TIMESTAMP",
+  "ID_TERMINAL",
+  "DELTATIME",
+  "DELTAPOS",
+  "ID_LOCATIONTYPE",
+  "CLUSTER",
+  "ORIGINAL",
+  "ECONSUMPTIONKWH"]
+}
+
+
