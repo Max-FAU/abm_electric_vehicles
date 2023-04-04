@@ -195,7 +195,7 @@ def get_delay_before_charging():
 
 
 def read_json_relevant_columns():
-    with open('relevant_columns_config.json', 'r') as config:
+    with open('../relevant_columns_config.json', 'r') as config:
         columns = json.load(config)
     return columns['relevant_columns']
 

@@ -1,6 +1,6 @@
 venv/
-consumption.csv
-labelled_cars.csv
-mobility_data_trip1_test.csv
-test.csv
-test_trips.csv
+test_data/consumption.csv
+test_data/labelled_cars.csv
+test_data/mobility_data_trip1_test.csv
+test_data/test.csv
+test_data/test_trips.csv
