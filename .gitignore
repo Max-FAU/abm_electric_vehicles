@@ -1,0 +1,6 @@
+venv/
+consumption.csv
+labelled_cars.csv
+mobility_data_trip1_test.csv
+test.csv
+test_trips.csv
