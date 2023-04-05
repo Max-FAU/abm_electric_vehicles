@@ -1,5 +1,5 @@
 {
-"relevant_columns":[
+  "relevant_columns":[
   "TRIPNUMBER",
   "LONGITUDE",
   "LATITUDE",
@@ -12,7 +12,6 @@
   "ID_LOCATIONTYPE",
   "CLUSTER",
   "ORIGINAL",
-  "ECONSUMPTIONKWH"]
+  "ECONSUMPTIONKWH"],
+  "folder": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data"
 }
-
-
