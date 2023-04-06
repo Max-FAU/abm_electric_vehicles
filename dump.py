@@ -4,6 +4,7 @@ import json
 import mobility_data as md
 import pandas as pd
 import charging as ch
+from car_agent import ElectricVehicle
 
 
 def read_json_config(keyword):
@@ -52,47 +53,61 @@ mobility_data_aggregated['CHARGING'] = mobility_data_aggregated.apply(lambda row
 # print(mobility_data_aggregated['CHARGING'])
 
 
-def calc_power_in_battery(consumption, charging_power, charging):
-    max_power = 50
-    current_power = max_power
-    if charging:
-        current_power += charging_power
-        if current_power > max_power:
-            current_power = 50
-    else:
-        current_power -= consumption
-        if current_power < 0:
-            current_power = 0
-
-        # print(current_power)
-
-# mobility_data_aggregated['BATTERY_POWER'] = mobility_data_aggregated.apply(
-#     lambda row: calc_power_in_battery(
-#         consumption=row['ECONSUMPTIONKWH'],
-#         start_power=50
-#     )
-# )
-
-class ElectricVehicle:
-    def __init__(self, name, battery_size):
+class ElectricVehicle2:
+    def __init__(self, name, battery_capacity):
         self.name = name
-        self.battery_size = battery_size
-        self.battery_level = 0
+        self.battery_capacity = battery_capacity
+        self.stop_charging = battery_capacity * 0.8
+        self.battery_power_left = None
+        self.charging_power = 10
+        self.moving = False
+        self.consumption = None
+        self.charging_buffer = True
 
-    def charge_battery(self):
-        self.battery_level = 100
+    def __charging_possible(self):
+        if self.consumption == 0:
+            if self.charging_buffer:
+                self.moving = True  # charging not possible because of buffer therefore moving
+                self.charging_buffer = False
+            else:
+                self.moving = False
+        else:
+            self.moving = True
+            self.charging_buffer = True
 
-    def drive(self, km):
-        consumption = km * 1
-        if self.battery_level == 0:
-            print("Battery is dead. Please charge the vehicle.")
-            return
-        self.battery_level -= consumption
-        print(self.battery_level)
+    def calc_power_in_battery(self):
+        # check if charging is possible
+        self.__charging_possible()
+        # initial set battery power left to the maximum capacity
+        if self.battery_power_left is None:
+            self.battery_power_left = self.battery_capacity
+        # if moving subtract consumption
+        if self.moving:
+            self.battery_power_left -= self.consumption
+            if self.battery_power_left < 0:
+                self.battery_power_left = 0
+        else:
+            self.battery_power_left += self.charging_power
+            if self.battery_power_left > self.stop_charging:
+                self.battery_power_left = self.stop_charging
 
-# Create an instance of the ElectricVehicle class
-my_ev = ElectricVehicle('Tesla', 50)
-for days in range(0, 10, 1):
-    my_ev.charge_battery()
-    my_ev.drive(25)
-    
+
+# create a dataframe with json data and absolute number of cars in germany
+df = pd.DataFrame({
+    'Model': ['renault_zoe', 'tesla_model_3', 'vw_up', 'vw_id3', 'smart_fortwo', 'hyundai_kona', 'bmw_i3', 'fiat_500', 'vw_golf', 'vw_id4_id5'],
+    'Absolut': [84.450, 56.902, 50.859, 48.483, 47.683, 40.374, 39.013, 29.035, 26.891, 25.831]
+})
+
+# calculate the probabilities of each model
+probs = df['Absolut'] / df['Absolut'].sum()
+
+# create a list of 100 models based on the distribution
+models = np.random.choice(df['Model'], size=100, p=probs)
+
+# create an agent like the distribution
+for model in models:
+    car_agent = ElectricVehicle(model)
+    normal_capacity = car_agent.get_battery_capacity('normal')
+    print(car_agent.name, normal_capacity)
+
+
