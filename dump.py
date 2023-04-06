@@ -4,6 +4,7 @@ import json
 import mobility_data as md
 import pandas as pd
 import charging as ch
+import math
 from car_agent import ElectricVehicle
 
 
@@ -92,22 +93,28 @@ class ElectricVehicle2:
                 self.battery_power_left = self.stop_charging
 
 
-# create a dataframe with json data and absolute number of cars in germany
-df = pd.DataFrame({
-    'Model': ['renault_zoe', 'tesla_model_3', 'vw_up', 'vw_id3', 'smart_fortwo', 'hyundai_kona', 'bmw_i3', 'fiat_500', 'vw_golf', 'vw_id4_id5'],
-    'Absolut': [84.450, 56.902, 50.859, 48.483, 47.683, 40.374, 39.013, 29.035, 26.891, 25.831]
-})
+def generate_cars_according_to_dist(number_of_agents):
+    with open('car_values.json', 'r') as f:
+        data = json.load(f)
 
-# calculate the probabilities of each model
-probs = df['Absolut'] / df['Absolut'].sum()
+    total_cars = 0
+    for name in data.keys():
+        total_cars += data[name]["number"]
 
-# create a list of 100 models based on the distribution
-models = np.random.choice(df['Model'], size=100, p=probs)
+    cars = []
+    distribution = []
+    for name in data.keys():
+        cars += [name]
+        distribution += [data[name]["number"] / total_cars]
+
+    car_names = np.random.choice(cars, size=number_of_agents, p=distribution)
+    print(len(car_names), "car names generated.")
+    return car_names
+
+car_models = generate_cars_according_to_dist(10)
 
 # create an agent like the distribution
-for model in models:
+for model in car_models:
     car_agent = ElectricVehicle(model)
     normal_capacity = car_agent.get_battery_capacity('normal')
-    print(car_agent.name, normal_capacity)
-
-
+    print(car_agent.name, car_agent.number_of_car, normal_capacity)

@@ -23,6 +23,7 @@ class ElectricVehicle:
         self.small_battery_capacity = car_dict[self.name]["small"]
         self.normal_battery_capacity = car_dict[self.name]["normal"]
         self.large_battery_capacity = car_dict[self.name]["large"]
+        self.number_of_car = car_dict[self.name]["number"]
 
     def get_battery_capacity(self, capacity_type='normal'):
         value_key = {
@@ -40,5 +41,5 @@ if __name__ == '__main__':
     small_capacity = bmw_i3.get_battery_capacity('small')
     normal_capacity = bmw_i3.get_battery_capacity('normal')
     large_capacity = bmw_i3.get_battery_capacity('large')
-
-    print(normal_capacity)
+    number_of_car = bmw_i3.number_of_car
+    print(number_of_car)

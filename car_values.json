@@ -1,57 +1,62 @@
 {
-  "dummy": {
-    "small": 30,
-    "normal": 50,
-    "large": 100
-  },
-  "bmw_i3": {
-    "small": 37.9,
-    "normal": 37.9,
-    "large": 37.9
-  },
-  "renault_zoe": {
-    "small": 52,
-    "normal": 52,
-    "large": 52
-  },
-  "tesla_model_3": {
-    "small": 75,
-    "normal": 75,
-    "large": 75
-  },
-  "vw_up": {
-    "small": 32.3,
-    "normal": 32.3,
-    "large": 32.3
-  },
-  "vw_id3": {
-    "small": 58,
-    "normal": 77,
-    "large": 77
-  },
-  "smart_fortwo": {
-    "small": 16.7,
-    "normal": 16.7,
-    "large": 16.7
-  },
-  "hyundai_kona": {
-    "small": 64,
-    "normal": 64,
-    "large": 64
-  },
-  "fiat_500": {
-    "small": 37.3,
-    "normal": 37.3,
-    "large": 37.3
-  },
-  "vw_golf": {
-    "small": 32,
-    "normal": 32,
-    "large": 32
-  },
-  "vw_id4_id5": {
-    "small": 77,
-    "normal": 77,
-    "large": 77
-  }
+    "bmw_i3": {
+        "small": 37.9,
+        "normal": 37.9,
+        "large": 37.9,
+        "number": 39013
+    },
+    "renault_zoe": {
+        "small": 52,
+        "normal": 52,
+        "large": 52,
+        "number": 84450
+    },
+    "tesla_model_3": {
+        "small": 75,
+        "normal": 75,
+        "large": 75,
+        "number": 56902
+    },
+    "vw_up": {
+        "small": 32.3,
+        "normal": 32.3,
+        "large": 32.3,
+        "number": 50859
+    },
+    "vw_id3": {
+        "small": 58,
+        "normal": 77,
+        "large": 77,
+        "number": 48483
+    },
+    "smart_fortwo": {
+        "small": 16.7,
+        "normal": 16.7,
+        "large": 16.7,
+        "number": 47683
+    },
+    "hyundai_kona": {
+        "small": 64,
+        "normal": 64,
+        "large": 64,
+        "number": 40374
+    },
+    "fiat_500": {
+        "small": 37.3,
+        "normal": 37.3,
+        "large": 37.3,
+        "number": 29035
+    },
+    "vw_golf": {
+        "small": 32,
+        "normal": 32,
+        "large": 32,
+        "number": 26891
+    },
+    "vw_id4_id5": {
+        "small": 77,
+        "normal": 77,
+        "large": 77,
+        "number": 25831
+    }
 }
