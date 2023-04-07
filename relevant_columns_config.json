@@ -13,5 +13,6 @@
   "CLUSTER",
   "ORIGINAL",
   "ECONSUMPTIONKWH"],
-  "folder": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data"
+  "folder": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data",
+  "file": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data\\quarterly_simulation_80.csv"
 }

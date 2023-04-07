@@ -5,25 +5,14 @@ import mobility_data as md
 import pandas as pd
 import charging as ch
 import math
-from car_agent import ElectricVehicle
+from datetime import datetime
+import helper as helper
+# from car_agent import ElectricVehicle
 
 
-def read_json_config(keyword):
-    with open('relevant_columns_config.json', 'r') as config:
-        columns = json.load(config)
-    return columns[keyword]
-
-
-def create_file_path():
-    # create the file path taken from json config
-    folder = read_json_config('folder')
-    file_name = 'quarterly_simulation_80.csv'
-    path = folder + '/' + file_name
-    return path
-
-
+filepath = helper.read_json_config('file')
 # read mobility data
-mobility_data = pd.read_csv(create_file_path())
+mobility_data = pd.read_csv(filepath)
 
 # prepare the mobility data and aggregate
 mobility_data = md.prepare_mobility_data(df=mobility_data,
@@ -33,19 +22,6 @@ mobility_data = md.prepare_mobility_data(df=mobility_data,
 mobility_data_aggregated = md.aggregate_15_min_steps(mobility_data)
 # print(mobility_data_aggregated)
 
-
-class MobilityData:
-    def __init__(self, header, row):
-        self.__dict__ = dict(zip(header, row))
-
-
-test = dict(zip(mobility_data_aggregated.columns, mobility_data_aggregated[1:]))
-
-instances = MobilityData(mobility_data_aggregated.columns, mobility_data_aggregated)
-
-print(test)
-
-breakpoint()
 # # calculate the absolute battery level using cumsum starting from 50
 # mobility_data_aggregated['BATTERY_LEVEL'] = 50 - mobility_data_aggregated['ECONSUMPTIONKWH'].cumsum()
 #
@@ -77,7 +53,7 @@ mobility_data_aggregated['CHARGING'] = mobility_data_aggregated.apply(
 # print(mobility_data_aggregated['CHARGING'])
 
 
-class ElectricVehicle2:
+class ElectricVehicle:
     def __init__(self, name, battery_capacity):
         self.name = name
         self.battery_capacity = battery_capacity
@@ -116,42 +92,67 @@ class ElectricVehicle2:
                 self.battery_power_left = self.stop_charging
 
 
-def generate_cars_according_to_dist(number_of_agents):
-    with open('car_values.json', 'r') as f:
-        data = json.load(f)
-
-    total_cars = 0
-    for name in data.keys():
-        total_cars += data[name]["number"]
-
-    cars = []
-    distribution = []
-    for name in data.keys():
-        cars += [name]
-        distribution += [data[name]["number"] / total_cars]
-
-    car_names = np.random.choice(cars, size=number_of_agents, p=distribution)
-    # print(len(car_names), "car names generated.")
-
-    return car_names
+zoe = ElectricVehicle('renault_zoe', 110)
 
 
-def number_of_each_car(car_name, car_names_list):
-    car_series = pd.Series(car_names_list)
-    car_counts = car_series.value_counts()
-    if car_name in car_counts.index:
-        return car_counts[car_name]
+def power(battery_power, consumption, charging):
+    if battery_power is None:
+        battery_power = max_capacity
     else:
-        return 0
+        if consumption > 0:
+            battery_power -= consumption
+            if battery_power < 0:
+                battery_power = 0
+        elif consumption == 0:
+            battery_power += charging
+            if battery_power >= max_capacity:
+                battery_power = max_capacity
+        else:
+            battery_power = battery_power
+            print("negative consumption not possible")
+    print(battery_power)
+    return battery_power
 
-# car_models = generate_cars_according_to_dist(10)
-# number = number_of_each_car(car_name='renault_zoe', car_names_list=car_models)
-# print(number)
-# create an agent like the distribution
-# for model in car_models:
-#     car_agent = ElectricVehicle(model)
-#     normal_capacity = car_agent.get_battery_capacity('normal')
-#     agents = generate_cars_according_to_dist(car_agent.number_of_car)
+data_tracking_df = pd.DataFrame(columns=['timestep', 'battery_power', 'consumption'])
+max_capacity = zoe.battery_capacity
+battery_power = None
+charging_power = 10
+for timestep, data in mobility_data_aggregated.iterrows():
+    # print(data['ECONSUMPTIONKWH'])
+    battery_power = power(battery_power, data['ECONSUMPTIONKWH'], charging_power)
+    data_tracking_df = data_tracking_df.append({"timestep": timestep, "battery_power": battery_power, "consumption": data['ECONSUMPTIONKWH']}, ignore_index=True)
 
+
+
+print(data_tracking_df)
+# data_tracking_df.to_csv('test.csv')
 # print(number)
 # print(car_agent.name, car_agent.number_of_car, normal_capacity)
+
+# create plot with two y-axes
+fig, ax1 = plt.subplots()
+ax2 = ax1.twinx()
+
+# plot y1 on first y-axis
+ax1.plot(data_tracking_df['timestep'], data_tracking_df['battery_power'], 'b-', label='battery capacity')
+ax1.set_xlabel('Time')
+ax1.set_ylabel('battery capacity in kwh')
+ax1.tick_params('y', colors='b')
+
+# plot y2 on second y-axis
+ax2.plot(data_tracking_df['timestep'], data_tracking_df['consumption'], 'r-', label='consumption')
+ax2.set_ylabel('consumption in kwh')
+ax2.tick_params('y', colors='r')
+
+# set xticks and rotate labels
+ax1.set_xticks(data_tracking_df['timestep'][::4])
+xticklabels = [datetime.strptime(str(x), '%Y-%m-%d %H:%M:%S').strftime('%H:%M') for x in data_tracking_df['timestep'][::4]]
+ax1.set_xticklabels(xticklabels, rotation=90)
+
+# add legend
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+# display plot
+plt.tight_layout()
+plt.show()

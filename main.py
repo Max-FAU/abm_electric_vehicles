@@ -1,5 +1,41 @@
 import pandas as pd
 import mobility_data as md
+import json
+import numpy as np
+
+
+def generate_cars_according_to_dist(number_of_agents):
+    with open('car_values.json', 'r') as f:
+        data = json.load(f)
+
+    total_cars = 0
+    for name in data.keys():
+        total_cars += data[name]["number"]
+
+    cars = []
+    distribution = []
+    for name in data.keys():
+        cars += [name]
+        distribution += [data[name]["number"] / total_cars]
+
+    car_names = np.random.choice(cars, size=number_of_agents, p=distribution)
+    # print(len(car_names), "car names generated.")
+
+    return car_names
+
+
+def number_of_each_car(car_name, car_names_list):
+    car_series = pd.Series(car_names_list)
+    car_counts = car_series.value_counts()
+    if car_name in car_counts.index:
+        return car_counts[car_name]
+    else:
+        return 0
+
+# car_models = generate_cars_according_to_dist(10)
+# number = number_of_each_car(car_name='renault_zoe', car_names_list=car_models)
+# print(number)
+
 
 
 if __name__ == '__main__':
