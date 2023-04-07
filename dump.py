@@ -14,13 +14,16 @@ def read_json_config(keyword):
     return columns[keyword]
 
 
-# create the file path taken from json config
-folder = read_json_config('folder')
-file_name = 'quarterly_simulation_80.csv'
-path = folder + '/' + file_name
+def create_file_path():
+    # create the file path taken from json config
+    folder = read_json_config('folder')
+    file_name = 'quarterly_simulation_80.csv'
+    path = folder + '/' + file_name
+    return path
+
 
 # read mobility data
-mobility_data = pd.read_csv(path)
+mobility_data = pd.read_csv(create_file_path())
 
 # prepare the mobility data and aggregate
 mobility_data = md.prepare_mobility_data(df=mobility_data,
@@ -28,12 +31,27 @@ mobility_data = md.prepare_mobility_data(df=mobility_data,
                                          days=1)
 
 mobility_data_aggregated = md.aggregate_15_min_steps(mobility_data)
+# print(mobility_data_aggregated)
 
+
+class MobilityData:
+    def __init__(self, header, row):
+        self.__dict__ = dict(zip(header, row))
+
+
+test = dict(zip(mobility_data_aggregated.columns, mobility_data_aggregated[1:]))
+
+instances = MobilityData(mobility_data_aggregated.columns, mobility_data_aggregated)
+
+print(test)
+
+breakpoint()
 # # calculate the absolute battery level using cumsum starting from 50
 # mobility_data_aggregated['BATTERY_LEVEL'] = 50 - mobility_data_aggregated['ECONSUMPTIONKWH'].cumsum()
 #
 
 mobility_data_aggregated['previous_value'] = mobility_data_aggregated['ECONSUMPTIONKWH'].shift(1)
+
 
 def charging(econ_value, prev_econ_value):
     if econ_value == 0 and prev_econ_value == 0:
@@ -49,8 +67,13 @@ def charging(econ_value, prev_econ_value):
         # print('charging not possible')
         charging = False
     return charging
+
+
 #
-mobility_data_aggregated['CHARGING'] = mobility_data_aggregated.apply(lambda row: charging(row['ECONSUMPTIONKWH'], row['previous_value']), axis=1)
+mobility_data_aggregated['CHARGING'] = mobility_data_aggregated.apply(
+    lambda row: charging(row['ECONSUMPTIONKWH'], row['previous_value']), axis=1)
+
+
 # print(mobility_data_aggregated['CHARGING'])
 
 
@@ -108,13 +131,27 @@ def generate_cars_according_to_dist(number_of_agents):
         distribution += [data[name]["number"] / total_cars]
 
     car_names = np.random.choice(cars, size=number_of_agents, p=distribution)
-    print(len(car_names), "car names generated.")
+    # print(len(car_names), "car names generated.")
+
     return car_names
 
-car_models = generate_cars_according_to_dist(10)
 
+def number_of_each_car(car_name, car_names_list):
+    car_series = pd.Series(car_names_list)
+    car_counts = car_series.value_counts()
+    if car_name in car_counts.index:
+        return car_counts[car_name]
+    else:
+        return 0
+
+# car_models = generate_cars_according_to_dist(10)
+# number = number_of_each_car(car_name='renault_zoe', car_names_list=car_models)
+# print(number)
 # create an agent like the distribution
-for model in car_models:
-    car_agent = ElectricVehicle(model)
-    normal_capacity = car_agent.get_battery_capacity('normal')
-    print(car_agent.name, car_agent.number_of_car, normal_capacity)
+# for model in car_models:
+#     car_agent = ElectricVehicle(model)
+#     normal_capacity = car_agent.get_battery_capacity('normal')
+#     agents = generate_cars_according_to_dist(car_agent.number_of_car)
+
+# print(number)
+# print(car_agent.name, car_agent.number_of_car, normal_capacity)
