@@ -12,9 +12,9 @@ def soc(battery_level, battery_capacity, battery_efficiency):
 if __name__ == '__main__':
 
     bmw_i3 = ElectricVehicle("bmw_i3")
-    normal_capacity = bmw_i3.get_battery_capacity('normal')
+    normal_capacity = bmw_i3.normal_battery_capacity
     print(normal_capacity)
-    current_lvl = 40
+    current_lvl = 30
     soc_1 = soc(battery_level=current_lvl,
                 battery_capacity=normal_capacity,
                 battery_efficiency=100)
