@@ -8,4 +8,5 @@ def read_json_config(keyword):
 
 
 if __name__ == '__main__':
-    file_path = read_json_config('file')
+    file_path = read_json_config('relevant_columns')
+    print(file_path)

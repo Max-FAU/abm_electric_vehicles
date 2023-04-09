@@ -3,69 +3,78 @@ from datetime import timedelta
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import helper as helper
 
 
-def create_df_limited_time(df: pd.DataFrame, starting_date: str, days: int):
-    start_date = pd.to_datetime(starting_date)
-    end_date = start_date + timedelta(days=days)
-    df.loc[:, 'TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
-    df = df[(df['TIMESTAMP'] > start_date) & (df['TIMESTAMP'] < end_date)]
+class DataAggregator:
+    def __init__(self):
+        self.df_limited_time = pd.DataFrame()
+        self.df_processed = pd.DataFrame()
 
-    return df
+        self.starting_date = None
+        self.days = None
+        self.end_date = None
+
+    def __create_df_limited_time(self, df: pd.DataFrame, starting_date: str, days: int):
+        self.days = days
+        self.starting_date = pd.to_datetime(starting_date)
+        self.end_date = self.starting_date + timedelta(days=days)
+        df.loc[:, 'TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
+        self.df_limited_time = df[(df['TIMESTAMP'] >= starting_date) & (df['TIMESTAMP'] < self.end_date)]
+        # return self.df_limited_time
+
+    def __aggregate_15_min_steps(self):
+        # calculate the total energy demand in that 15 minutes
+        self.df_limited_time.set_index('TIMESTAMP', inplace=True)
+
+        def __aggregation_mode():
+            """Helper function to find the mode"""
+            return lambda x: x.value_counts().index[0]
+
+        # Refactor, columns are already in json relevant columns
+        self.df_processed = self.df_limited_time.resample('15T', closed='left').agg(
+            {'ECONSUMPTIONKWH': 'sum',
+             'TRIPNUMBER': 'min',
+             'LONGITUDE': 'first',
+             'LATITUDE': 'first',
+             'ID_PANELSESSION': 'max',
+             'SPEED': 'mean',
+             'ID_TERMINAL': __aggregation_mode(),
+             'DELTATIME': 'sum',
+             'DELTAPOS': 'sum',
+             'ID_LOCATIONTYPE': __aggregation_mode(),
+             'CLUSTER': __aggregation_mode(),
+             'ORIGINAL': __aggregation_mode()}
+        )
+        # return self.df_processed
+
+    def __data_cleaning(self):
+        # Every row needs an entry in tripno, econ
+        self.df_processed = self.df_processed.dropna(subset=['TRIPNUMBER', 'ECONSUMPTIONKWH'])
+        # All timestamps need to match the given format
+        timestamp_format = '%Y-%m-%d %H:%M'
+        try:
+            pd.to_datetime(self.df_processed.index, format=timestamp_format, errors='coerce').notnull().all()
+            print("index in correct format.")
+        except ValueError:
+            print("Timestamp error.")
+        if self.df_processed.shape[0] % 96 == 0:
+            print('Number of rows can be divided by 96.')
+        else:
+            raise Exception('Number of rows cannot be divided by 96.')
+        #TODO
+        # Could also cast every column used in simulation to specific dtype, that we do not encounter errors
+        # during simulation
+
+    def prepare_mobility_data(self, df: pd.DataFrame, starting_date: str, days: int):
+        self.__create_df_limited_time(df, starting_date, days)
+        self.__aggregate_15_min_steps()
+        self.__data_cleaning()
 
 
-def aggregate_15_min_steps(df: pd.DataFrame):
-    # calculate the total energy demand in that 15 minutes
-    df.set_index('TIMESTAMP', inplace=True)
-
-    def aggregation_mode():
-        """Helper function to find the mode"""
-        return lambda x: x.value_counts().index[0]
-
-    # Refactor, columns are already in json relevant columns
-    df_resampled = df.resample('15T').agg(
-        {'ECONSUMPTIONKWH': 'sum',
-         'TRIPNUMBER': 'min',
-         'LONGITUDE': 'first',
-         'LATITUDE': 'first',
-         'ID_PANELSESSION': 'max',
-         'SPEED': 'mean',
-         'ID_TERMINAL': aggregation_mode(),
-         'DELTATIME': 'sum',
-         'DELTAPOS': 'sum',
-         'ID_LOCATIONTYPE': aggregation_mode(),
-         'CLUSTER': aggregation_mode(),
-         'ORIGINAL': aggregation_mode()}
-    )
-    return df_resampled
-
-
-def read_json_relevant_columns():
-    with open('relevant_columns_config.json', 'r') as config:
-        columns = json.load(config)
-    return columns['relevant_columns']
-
-
-def data_cleaning(df: pd.DataFrame):
-    # Every row needs an entry in timestamp, tripno, econ
-    df = df.dropna(subset=['TIMESTAMP', 'TRIPNUMBER', 'ECONSUMPTIONKWH'])
-    # All timestamps need to match the given format
-    timestamp_format = '%Y-%m-%d %H:%M'
-    df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'], format=timestamp_format, errors='coerce')
-    df.dropna(subset=['TIMESTAMP'], inplace=True)
-    # Could also cast every column used in simulation to specific dtype, that we do not encounter errors
-    # during simulation
-    return df
-
-
-def prepare_mobility_data(df: pd.DataFrame, starting_date: str, days: int):
-    relevant_cols = read_json_relevant_columns()
-    df = df[relevant_cols]
-    df = create_df_limited_time(df=df,
-                                starting_date=starting_date,
-                                days=days)
-    df = data_cleaning(df)
-    return df
+def turn_into_dict(df: pd.DataFrame):
+    mobility_dict = df.T.to_dict('dict')
+    return mobility_dict
 
 
 if __name__ == '__main__':
@@ -76,58 +85,19 @@ if __name__ == '__main__':
     except FileNotFoundError:
         mobility_data = pd.read_csv(path2)
 
-    mobility_data = prepare_mobility_data(df=mobility_data,
-                                          starting_date='2008-07-12 00:00:00',
-                                          days=14)
+    data = DataAggregator()
+    data.prepare_mobility_data(mobility_data, '2008-07-13 00:00:00', 1)
+    print(data.df_processed)
+    # df = data.create_df_limited_time()
+    # df_1 = data.aggregate_15_min_steps()
+    # data.data_cleaning()
 
-    mobility_data_aggregated = aggregate_15_min_steps(mobility_data)
-
-    plot = False
-    if plot:
-        try:
-            test = pd.read_csv(path1)
-        except FileNotFoundError:
-            test = pd.read_csv(path2)
-
-        test = prepare_mobility_data(df=test,
-                                     starting_date='2008-07-12 00:00:00',
-                                     days=14)
-
-        test.set_index('TIMESTAMP', inplace=True)
-
-        charging_1 = (test['ECONSUMPTIONKWH'] <= 0)
-        charging_2 = (mobility_data_aggregated['ECONSUMPTIONKWH'] <= 0)
-
-
-        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=False)
-
-        ax1.plot(test['ECONSUMPTIONKWH'], color='blue')
-        ax1.set_ylabel('baseline_value')
-
-        ax1.fill_between(test.index,
-                         np.min(mobility_data_aggregated['ECONSUMPTIONKWH']),
-                         np.max(mobility_data_aggregated['ECONSUMPTIONKWH']) * 1.1,
-                         where=charging_1, alpha=0.3, color='green')
-
-
-        ax2.plot(mobility_data_aggregated['ECONSUMPTIONKWH'], color='black')
-        ax2.set_ylabel('aggregated_value')
-
-        ax2.fill_between(mobility_data_aggregated.index,
-                         np.min(mobility_data_aggregated['ECONSUMPTIONKWH']),
-                         np.max(mobility_data_aggregated['ECONSUMPTIONKWH']) * 1.1,
-                         where=charging_2, alpha=0.3, color='green')
-
-
-        ylim_max_value = max(max(test['ECONSUMPTIONKWH']),
-                             max(mobility_data_aggregated['ECONSUMPTIONKWH'])) * 1.1
-
-        for ax in [ax1, ax2]:
-            ax.tick_params(axis='x', labelrotation=90)
-            ax.set_ylim(0, ylim_max_value)
-
-
-        plt.tight_layout()
-        plt.show()
-
-    print(mobility_data_aggregated)
+    # mobility_data = prepare_mobility_data(df=mobility_data,
+    #                                       starting_date='2008-07-12 00:00:00',
+    #                                       days=1)
+    #
+    # mobility_data_aggregated = aggregate_15_min_steps(mobility_data)
+    #
+    # mobility_data_aggregated = turn_into_dict(mobility_data_aggregated)
+    # key = pd.to_datetime('2008-07-12 01:15:00')
+    # print(mobility_data_aggregated[key]['ECONSUMPTIONKWH'])

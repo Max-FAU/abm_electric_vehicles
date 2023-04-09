@@ -107,3 +107,5 @@ if __name__ == '__main__':
     print(next_car.battery_level_curve)
 
 # TODO build new class with results, access results easier and write functions to aggregate them
+# TODO aggregated mobility file - read it whole - store maybe as dict
+# TODO have timestep as key and consumption as values

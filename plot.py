@@ -28,3 +28,68 @@ ax2.legend(loc='upper right')
 # display plot
 plt.tight_layout()
 plt.show()
+
+
+
+
+
+#### next plot
+
+path1 = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_80.csv"
+path2 = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
+try:
+    mobility_data = pd.read_csv(path1)
+except FileNotFoundError:
+    mobility_data = pd.read_csv(path2)
+
+mobility_data = prepare_mobility_data(df=mobility_data,
+                                      starting_date='2008-07-12 00:00:00',
+                                      days=1)
+
+mobility_data_aggregated = aggregate_15_min_steps(mobility_data)
+
+plot = False
+if plot:
+    try:
+        test = pd.read_csv(path1)
+    except FileNotFoundError:
+        test = pd.read_csv(path2)
+
+    test = prepare_mobility_data(df=test,
+                                 starting_date='2008-07-12 00:00:00',
+                                 days=14)
+
+    test.set_index('TIMESTAMP', inplace=True)
+
+    charging_1 = (test['ECONSUMPTIONKWH'] <= 0)
+    charging_2 = (mobility_data_aggregated['ECONSUMPTIONKWH'] <= 0)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=False)
+
+    ax1.plot(test['ECONSUMPTIONKWH'], color='blue')
+    ax1.set_ylabel('baseline_value')
+
+    ax1.fill_between(test.index,
+                     np.min(mobility_data_aggregated['ECONSUMPTIONKWH']),
+                     np.max(mobility_data_aggregated['ECONSUMPTIONKWH']) * 1.1,
+                     where=charging_1, alpha=0.3, color='green')
+
+    ax2.plot(mobility_data_aggregated['ECONSUMPTIONKWH'], color='black')
+    ax2.set_ylabel('aggregated_value')
+
+    ax2.fill_between(mobility_data_aggregated.index,
+                     np.min(mobility_data_aggregated['ECONSUMPTIONKWH']),
+                     np.max(mobility_data_aggregated['ECONSUMPTIONKWH']) * 1.1,
+                     where=charging_2, alpha=0.3, color='green')
+
+    ylim_max_value = max(max(test['ECONSUMPTIONKWH']),
+                         max(mobility_data_aggregated['ECONSUMPTIONKWH'])) * 1.1
+
+    for ax in [ax1, ax2]:
+        ax.tick_params(axis='x', labelrotation=90)
+        ax.set_ylim(0, ylim_max_value)
+
+    plt.tight_layout()
+    plt.show()
+
+print(mobility_data_aggregated)
