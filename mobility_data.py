@@ -55,9 +55,9 @@ class DataAggregator:
         timestamp_format = '%Y-%m-%d %H:%M'
         try:
             pd.to_datetime(self.df_processed.index, format=timestamp_format, errors='coerce').notnull().all()
-            print("index in correct format.")
+            print("Timestamp index in correct format.")
         except ValueError:
-            print("Timestamp error.")
+            print("Timestamp index error - it is in wrong format.")
         if self.df_processed.shape[0] % 96 == 0:
             print('Number of rows can be divided by 96.')
         else:
@@ -71,7 +71,7 @@ class DataAggregator:
         self.__aggregate_15_min_steps()
         self.__data_cleaning()
 
-
+# TODO Maybe use data as dictionary
 def turn_into_dict(df: pd.DataFrame):
     mobility_dict = df.T.to_dict('dict')
     return mobility_dict
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         mobility_data = pd.read_csv(path2)
 
     data = DataAggregator()
-    data.prepare_mobility_data(mobility_data, '2008-07-13 00:00:00', 1)
+    data.prepare_mobility_data(mobility_data, '2008-07-13', 1)
     print(data.df_processed)
     # df = data.create_df_limited_time()
     # df_1 = data.aggregate_15_min_steps()
