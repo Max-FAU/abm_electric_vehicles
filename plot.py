@@ -29,10 +29,6 @@ ax2.legend(loc='upper right')
 plt.tight_layout()
 plt.show()
 
-
-
-
-
 #### next plot
 
 path1 = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_80.csv"
