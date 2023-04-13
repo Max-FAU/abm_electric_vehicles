@@ -1,71 +1,51 @@
 {
     "bmw_i3": {
-        "small_battery": 37.9,
-        "normal_battery": 37.9,
-        "large_battery": 37.9,
+        "battery_capacity": 37.9,
         "charging_power": 11,
         "number": 39013
     },
     "renault_zoe": {
-        "small_battery": 52,
-        "normal_battery": 52,
-        "large_battery": 52,
+        "battery_capacity": 52,
         "charging_power": 11,
         "number": 84450
     },
     "tesla_model_3": {
-        "small_battery": 75,
-        "normal_battery": 75,
-        "large_battery": 75,
+        "battery_capacity": 75,
         "charging_power": 11,
         "number": 56902
     },
     "vw_up": {
-        "small_battery": 32.3,
-        "normal_battery": 32.3,
-        "large_battery": 32.3,
+        "battery_capacity": 32.3,
         "charging_power": 11,
         "number": 50859
     },
     "vw_id3": {
-        "small_battery": 58,
-        "normal_battery": 77,
-        "large_battery": 77,
+        "battery_capacity": 77,
         "charging_power": 11,
         "number": 48483
     },
     "smart_fortwo": {
-        "small_battery": 16.7,
-        "normal_battery": 16.7,
-        "large_battery": 16.7,
+        "battery_capacity": 16.7,
         "charging_power": 11,
         "number": 47683
     },
     "hyundai_kona": {
-        "small_battery": 64,
-        "normal_battery": 64,
-        "large_battery": 64,
+        "battery_capacity": 64,
         "charging_power": 11,
         "number": 40374
     },
     "fiat_500": {
-        "small_battery": 37.3,
-        "normal_battery": 37.3,
-        "large_battery": 37.3,
+        "battery_capacity": 37.3,
         "charging_power": 11,
         "number": 29035
     },
     "vw_golf": {
-        "small_battery": 32,
-        "normal_battery": 32,
-        "large_battery": 32,
+        "battery_capacity": 32,
         "charging_power": 11,
         "number": 26891
     },
     "vw_id4_id5": {
-        "small_battery": 77,
-        "normal_battery": 77,
-        "large_battery": 77,
+        "battery_capacity": 77,
         "charging_power": 11,
         "number": 25831
     }

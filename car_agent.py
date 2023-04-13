@@ -9,10 +9,8 @@ from mobility_data import MobilityDataAggregator
 
 
 class ElectricVehicle:
-    def __init__(self, model, battery_size):
-        """Battery Size: small, normal, large"""
+    def __init__(self, model):
         self.model = model
-        self.battery_size = battery_size
 
         self.unique_id = None
         self.mobility_data = None
@@ -33,14 +31,7 @@ class ElectricVehicle:
             car_dict = json.load(f)
 
         # retrieve and set car values
-        if self.battery_size == 'small':
-            self.battery_capacity = car_dict[self.model]["small_battery"]
-        elif self.battery_size == 'normal':
-            self.battery_capacity = car_dict[self.model]["normal_battery"]
-        elif self.battery_size == 'large':
-            self.battery_capacity = car_dict[self.model]["large_battery"]
-        else:
-            print("Define input parameter for battery size: 'small', 'normal' or 'large'")
+        self.battery_capacity = car_dict[self.model]["battery_capacity"]
         self.number_of_car = car_dict[self.model]["number"]
         self.charging_power = car_dict[self.model]["charging_power"]
 
@@ -98,10 +89,10 @@ class ElectricVehicle:
 
 
 class ElectricVehicleFlatCharge(ElectricVehicle):
-    def __init__(self, model, battery_size, **params):
-        super().__init__(model, battery_size)
+    def __init__(self, model, **params):
+        super().__init__(model)
         self.max_power = 3.7
-        self.min_power = 0
+        self.min_power = 1.22
 
     # TODO
     # Implement flat charging calculation
@@ -118,16 +109,15 @@ if __name__ == '__main__':
     path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
     raw_mobility_data = pd.read_csv(path)
     unique_id = raw_mobility_data['ID_TERMINAL'].unique()[0]
-    print(unique_id)
 
     # TODO Calculate average trip size and assign larger batteries for average long trips
     # initialize car object and retrieve expected battery capacity value
-    bmw_i3 = ElectricVehicle(model='bmw_i3', battery_size='small')
+    bmw_i3 = ElectricVehicle(model='bmw_i3')
 
     bmw_i3.add_mobility_data(mobility_data=raw_mobility_data,
                              starting_date='2008-07-13',
                              num_days=1)
-    breakpoint()
+
     timestamps = []
     for timestamp, data_row in bmw_i3.mobility_data.iterrows():
         battery_level = bmw_i3.calculate_battery_level(consumption=data_row['ECONSUMPTIONKWH'],

@@ -46,7 +46,7 @@ if __name__ == '__main__':
     for model in set(car_models):
         number = number_of_each_car(car_model=model, car_models_list=car_models)
         print("{} {}".format(number, model))
-
+    breakpoint()
     # path = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_80.csv"
     path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
     raw_mobility_data = pd.read_csv(path)
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     for car in car_models:
         battery_size = random.choice(['small', 'normal', 'large'])
         individual_identifier = i
-        generated_car = ElectricVehicle(model=car, battery_size=battery_size)
+        generated_car = ElectricVehicle(model=car)
         generated_car.add_mobility_data(mobility_data=raw_mobility_data,
                                         starting_date='2008-07-13',
                                         num_days=1)

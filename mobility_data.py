@@ -45,13 +45,13 @@ class MobilityDataAggregator:
              'TRIPNUMBER': 'min',
              'LONGITUDE': 'first',
              'LATITUDE': 'first',
-             'ID_PANELSESSION': 'max',
+             'ID_PANELSESSION': 'max',  # charging should be dependent on this / consumption is doing it
              'SPEED': 'mean',
-             'ID_TERMINAL': _aggregation_mode(),
+             'ID_TERMINAL': _aggregation_mode(),  # TODO set to first is always the same
              'DELTATIME': 'sum',
              'DELTAPOS': 'sum',
              'ID_LOCATIONTYPE': _aggregation_mode(),
-             'CLUSTER': _aggregation_mode(),
+             'CLUSTER': 'min',   # home / work location
              'ORIGINAL': _aggregation_mode()}
         )
         # return self.df_processed
