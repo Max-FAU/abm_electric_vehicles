@@ -41,18 +41,12 @@ class MobilityDataAggregator:
 
         # Refactor, columns are already in json relevant columns
         self.df_processed = self.df_limited_time.resample('15T', closed='left').agg(
-            {'ECONSUMPTIONKWH': 'sum',
+            {'ECONSUMPTIONKWH': 'sum',  # charging dependent on this
              'TRIPNUMBER': 'min',
-             'LONGITUDE': 'first',
-             'LATITUDE': 'first',
-             'ID_PANELSESSION': 'max',  # charging should be dependent on this / consumption is doing it
-             'SPEED': 'mean',
-             'ID_TERMINAL': _aggregation_mode(),  # TODO set to first is always the same
-             'DELTATIME': 'sum',
-             'DELTAPOS': 'sum',
-             'ID_LOCATIONTYPE': _aggregation_mode(),
-             'CLUSTER': 'min',   # home / work location
-             'ORIGINAL': _aggregation_mode()}
+             'ID_PANELSESSION': 'max',  # charging dependent on this
+             'ID_TERMINAL': 'first',  # car_id
+             'CLUSTER': 'min',
+             'DELTAPOS': 'sum'}   # home / work location
         )
         # return self.df_processed
 
@@ -67,9 +61,6 @@ class MobilityDataAggregator:
             print("Timestamp index error - it is in wrong format.")
         if not self.df_processed.shape[0] % 96 == 0:
             raise Exception('Number of rows cannot be divided by 96.')
-        #TODO
-        # Could also cast every column used in simulation to specific dtype, that we do not encounter errors
-        # during simulation
 
     def prepare_mobility_data(self, starting_date: str, num_days: int) -> pd.DataFrame:
         self._set_unique_id()
@@ -79,7 +70,17 @@ class MobilityDataAggregator:
         return self.df_processed
 
 
+def median_trip_length(df):
+    len_dict = {}
+    car_id = df['ID_TERMINAL'].unique()[0]
+    trip_df = df.groupby('TRIPNUMBER').sum()
+    med_trip_len = trip_df['DELTAPOS'].median()
+    len_dict[car_id] = med_trip_len
+    return len_dict
+
+
 if __name__ == '__main__':
+
     path1 = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_80.csv"
     path2 = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
     try:
@@ -88,6 +89,14 @@ if __name__ == '__main__':
         mobility_data = pd.read_csv(path2)
 
     data = MobilityDataAggregator(mobility_data)
-    mobility_data = data.prepare_mobility_data(starting_date='2008-07-13', num_days=1)
+    mobility_data = data.prepare_mobility_data(starting_date='2008-07-13', num_days=15)
     # mobility_dict = mobility_data.T.to_dict('dict')
-    print(data.unique_id)
+    mobility_data_dict = {'test': mobility_data}
+    len_dict = {}
+    for dataframe in mobility_data_dict.values():
+        print(dataframe)
+        new_dict = median_trip_length(dataframe)
+        len_dict.update(new_dict)
+
+    print(len_dict)
+

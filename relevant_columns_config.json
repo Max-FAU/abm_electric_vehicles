@@ -1,18 +1,12 @@
 {
   "relevant_columns":[
   "TRIPNUMBER",
-  "LONGITUDE",
-  "LATITUDE",
   "ID_PANELSESSION",
-  "SPEED",
   "TIMESTAMP",
   "ID_TERMINAL",
-  "DELTATIME",
-  "DELTAPOS",
-  "ID_LOCATIONTYPE",
   "CLUSTER",
-  "ORIGINAL",
-  "ECONSUMPTIONKWH"],
+  "ECONSUMPTIONKWH",
+  "DELTAPOS"],
   "folder": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data",
   "file": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data\\quarterly_simulation_80.csv"
 }
