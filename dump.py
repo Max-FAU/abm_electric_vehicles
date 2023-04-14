@@ -29,14 +29,25 @@ import helper as helper
 # data_tracking_df.to_csv('test.csv')
 # print(number)
 # print(car_agent.name, car_agent.number_of_car, normal_capacity)
+#
+# df = pd.read_csv('aggregated_results.csv')
+# df.set_index('timestamp', inplace=True)
+#
+# fig, ax = plt.subplots()
+# ax.plot(df)
+# ax.set_xticks(df.index[::4])
+# ax.tick_params(axis='x', labelrotation=90)
+#
+# plt.tight_layout()
+# plt.show()
+import glob
+directory_path = r"C:\Users\Max\PycharmProjects\mesa\failed_processed_dataframes"
+csv_files = glob.glob(directory_path + "/*failed_processed_df.csv")
 
-df = pd.read_csv('aggregated_results.csv')
-df.set_index('timestamp', inplace=True)
-
-fig, ax = plt.subplots()
-ax.plot(df)
-ax.set_xticks(df.index[::4])
-ax.tick_params(axis='x', labelrotation=90)
-
-plt.tight_layout()
-plt.show()
+for file in csv_files:
+    df = pd.read_csv(file)
+    print(len(df))
+    df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
+    df['Next_Timestamp'] = df['TIMESTAMP'].shift(-1)
+    df['Time_Diff'] = df['Next_Timestamp'] - df['TIMESTAMP']
+    df.to_csv(file)
