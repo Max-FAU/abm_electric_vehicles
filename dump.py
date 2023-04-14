@@ -7,7 +7,7 @@ import charging as ch
 import math
 from itertools import count
 import matplotlib.pyplot as plt
-
+import random
 import helper as helper
 
 
@@ -40,14 +40,31 @@ import helper as helper
 #
 # plt.tight_layout()
 # plt.show()
-import glob
-directory_path = r"C:\Users\Max\PycharmProjects\mesa\failed_processed_dataframes"
-csv_files = glob.glob(directory_path + "/*failed_processed_df.csv")
+df = pd.read_csv('median_trip_length.csv', index_col=0)
+df = df.dropna()
+df['decile_label'] = pd.qcut(df['median_trip_length'], q=10, labels=False, duplicates='drop') + 1
+df = df.sort_values('decile_label')
+df = df.reset_index(drop=True)
 
-for file in csv_files:
-    df = pd.read_csv(file)
-    print(len(df))
-    df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
-    df['Next_Timestamp'] = df['TIMESTAMP'].shift(-1)
-    df['Time_Diff'] = df['Next_Timestamp'] - df['TIMESTAMP']
-    df.to_csv(file)
+with open('car_values.json') as f:
+    car_dict = json.load(f)
+
+charging_power_list = [car["battery_capacity"] for car in car_dict.values()]
+charging_power_list = sorted(charging_power_list)
+
+print(charging_power_list)
+
+
+# TODO
+# Directory with all mobility data
+# Mobility data labelled with 
+# list of
+mobility_files = ["All file names"]
+car_id = 20
+mobility_car_id = '_' + str(car_id)
+valid_file_names = [name for name in mobility_files if mobility_car_id in name]
+picked = random.choice(mobility_files)
+mobility_files.remove(picked)
+
+print("Picked number:", picked)
+print("Remaining list:", my_list)

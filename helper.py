@@ -7,6 +7,11 @@ def read_json_config(keyword):
     return columns[keyword]
 
 
+def aggregation_mode():
+    """Helper function to find the mode"""
+    return lambda x: x.value_counts().index[0]
+
+
 if __name__ == '__main__':
     file_path = read_json_config('relevant_columns')
     print(file_path)
