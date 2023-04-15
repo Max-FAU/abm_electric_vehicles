@@ -1,8 +1,3 @@
-# Initialization of the model
-# Retrieve the EV Agent data
-# create electric vehicle with battery
-# assign battery capacity
-# initialize electric vehicle
 import json
 import pandas as pd
 from mobility_data import MobilityDataAggregator

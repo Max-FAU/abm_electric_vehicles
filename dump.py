@@ -40,24 +40,11 @@ import helper as helper
 #
 # plt.tight_layout()
 # plt.show()
-df = pd.read_csv('median_trip_length.csv', index_col=0)
-df = df.dropna()
-df['decile_label'] = pd.qcut(df['median_trip_length'], q=10, labels=False, duplicates='drop') + 1
-df = df.sort_values('decile_label')
-df = df.reset_index(drop=True)
-
-with open('car_values.json') as f:
-    car_dict = json.load(f)
-
-charging_power_list = [car["battery_capacity"] for car in car_dict.values()]
-charging_power_list = sorted(charging_power_list)
-
-print(charging_power_list)
 
 
 # TODO
 # Directory with all mobility data
-# Mobility data labelled with 
+# Mobility data labelled with
 # list of
 mobility_files = ["All file names"]
 car_id = 20
