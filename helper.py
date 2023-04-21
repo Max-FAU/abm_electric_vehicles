@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 
 
 def read_json_config(keyword):
@@ -10,6 +11,12 @@ def read_json_config(keyword):
 def aggregation_mode():
     """Helper function to find the mode"""
     return lambda x: x.value_counts().index[0]
+
+
+def set_print_options():
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.expand_frame_repr', False)
 
 
 if __name__ == '__main__':

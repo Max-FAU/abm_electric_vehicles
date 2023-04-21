@@ -9,6 +9,8 @@ from itertools import count
 import matplotlib.pyplot as plt
 import random
 import helper as helper
+from mobility_data import MobilityDataAggregator
+from car_agent import ElectricVehicle
 
 
 # from car_agent import ElectricVehicle
@@ -41,17 +43,41 @@ import helper as helper
 # plt.tight_layout()
 # plt.show()
 
+def calculate_range_anxiety():
+    pass
 
-# TODO
-# Directory with all mobility data
-# Mobility data labelled with
-# list of
-mobility_files = ["All file names"]
-car_id = 20
-mobility_car_id = '_' + str(car_id)
-valid_file_names = [name for name in mobility_files if mobility_car_id in name]
-picked = random.choice(mobility_files)
-mobility_files.remove(picked)
 
-print("Picked number:", picked)
-print("Remaining list:", my_list)
+def read_data_local_test():
+    path1 = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_295.csv"
+    path2 = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
+    try:
+        mobility_data = pd.read_csv(path1)
+    except FileNotFoundError:
+        mobility_data = pd.read_csv(path2)
+    return mobility_data
+
+
+def load_test_timestamps():
+    start_time = pd.Timestamp('2008-07-17 12:00:00')
+    timestamps = pd.date_range(start_time, periods=24, freq='15min').tolist()
+    return timestamps
+
+
+if __name__ == '__main__':
+    timestamps = load_test_timestamps()
+    mobility_data = read_data_local_test()
+
+    bmw_i3 = ElectricVehicle(model='bmw_i3', target_soc=1.00)
+
+    data = MobilityDataAggregator(mobility_data)
+    mobility_data = data.prepare_mobility_data(start_date='2008-07-13', num_days=7)
+    mobility_dict = mobility_data.T.to_dict('dict')
+    # print(mobility_dict)
+
+    for step in timestamps:
+        timestamp_consumption = mobility_dict[step]['ECONSUMPTIONKWH']
+        bmw_i3.calculate_battery_level(consumption=timestamp_consumption,
+                                       charging_efficiency=0.95)
+        print(bmw_i3.battery_level)
+
+    calculate_range_anxiety()

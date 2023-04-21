@@ -1,24 +1,38 @@
 import json
 import pandas as pd
+import helper
 from mobility_data import MobilityDataAggregator
 
 
 class ElectricVehicle:
-    def __init__(self, model):
+    def __init__(self, model: str, target_soc: float):
+        """
+        :param model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
+        :param target_soc: 0.00 - 1.00, charging happens until target SOC has been reached
+        """
+
         self.model = model
 
-        self.unique_id = None
-        self.mobility_data = None
-        self.battery_level = None
         self.battery_capacity = None
+        self.battery_level = None
+        self.target_soc = target_soc
         self.soc = None
+
+        self.location = None
+
+        self.unique_id = None
+        self.anxiety_factor = 1.5
         self.range_anxiety = None
 
+        self.plugged_in = None
+        self.current_charging = None
+
+        # run this always when creating a car agent
         self._initialize_car_values()
 
-        self.load_curve = []
-        self.battery_level_curve = []
-        self.soc_curve = []
+        # self.load_curve = []
+        # self.battery_level_curve = []
+        # self.soc_curve = []
 
     def _initialize_car_values(self):
         # load car values from JSON file in directory
@@ -28,114 +42,136 @@ class ElectricVehicle:
         # retrieve and set car values
         self.battery_capacity = car_dict[self.model]["battery_capacity"]
         self.number_of_car = car_dict[self.model]["number"]
-        self.charging_power = car_dict[self.model]["charging_power"]
+        self.charging_power_home = car_dict[self.model]["charging_power_home"]
+        self.charging_power_word = car_dict[self.model]["charging_power_work"]
 
-    def calculate_battery_level(self, consumption, battery_efficiency):
+    def set_plug_in_status(self, df, timestamp):
+
+        panel_session = df.loc[timestamp, 'ID_PANELSESSION']
+        current_index = df.index.get_loc(timestamp)
+
+        # first step for 15 minute buffer, since 1 timestep is 15 mins away
+        if self.plugged_in is None:  # first time
+            previous_index = current_index
+        else:
+            previous_index = current_index - 1
+
+        previous_timestamp = df.index[previous_index]
+        previous_panel_session = df.loc[previous_timestamp, 'ID_PANELSESSION']
+
+        # This implements 15 minutes buffer
+        if (panel_session == 0) & (previous_panel_session == 0):
+            self.plugged_in = True
+        else:
+            self.plugged_in = False
+
+    def charging_possible(self, soc, target_soc, plugged_in, consumption):
+        if soc > target_soc:
+            return False
+        if not plugged_in:
+            return False
+        if plugged_in and soc < target_soc and consumption == 0:
+            return True
+
+    def calculate_battery_level(self, df, timestamp, charging_efficiency=0.95):
+
         if self.battery_level is None:
             self.battery_level = self.battery_capacity
 
-        if consumption > 0:
-            self.battery_level -= consumption
-            if self.battery_level < 0:
-                self.battery_level = 0
-            # Append 0 to load curve if there is consumption, no charging happens
-            self.load_curve.append(0)
-        elif consumption == 0:
-            # Calculate the potential battery level after full charging
-            # to compare with maximum battery capacity
-            potential_battery_level = self.battery_level + self.charging_power
+        self._calc_soc()
+
+        consumption = df.loc[timestamp, 'ECONSUMPTIONKWH']
+
+        charging = self.charging_possible(self.soc,
+                                          self.target_soc,
+                                          self.plugged_in,
+                                          consumption)
+
+        if not charging:
+            potential_battery_level = self.battery_level - consumption
+            if potential_battery_level < 0:
+                new_consumption_value = min(self.battery_level, consumption - self.battery_level)
+                self.battery_level -= new_consumption_value
+            else:
+                self.battery_level -= consumption
+            # print("consumption")
+        elif charging:
+            # TODO charging power home should be charging_power -> min(charging_power_home, charging_power_station)
+            potential_battery_level = self.battery_level + self.charging_power_home
             if potential_battery_level >= self.battery_capacity:
                 over_charged_value = potential_battery_level - self.battery_capacity
-                # Reduce charging power if not enough capacity in battery left
-                # cannot be negative
-                new_charging_value = max(0, self.charging_power - over_charged_value)
+                new_charging_value = max(0, self.charging_power_home - over_charged_value)
                 self.battery_level += new_charging_value
-                self.load_curve.append(new_charging_value)
+                # self.load_curve.append(new_charging_value)
             else:
-                self.battery_level += self.charging_power
-                self.load_curve.append(self.charging_power)
+                # check for target soc and reduce charging power according to it
+                charging_value = self.target_soc * self.battery_capacity - self.battery_level
+                charging_value = max(charging_value, self.charging_power_home)
+                self.battery_level += charging_value
+            # self.load_curve.append(self.charging_power)
+        # print("charging")
         else:
-            print("negative consumption not possible")
+            # print("Car is plugged in with consumption.")
+            pass
 
-        self.battery_level_curve.append(self.battery_level)
-        self._calc_soc(battery_efficiency)
-        return self.battery_level
+        # self.battery_level_curve.append(self.battery_level)
+        # self._calc_soc()
+        print(self.battery_level)
+        # return self.battery_level
 
-    def _calc_soc(self, battery_efficiency):
-        # Convert battery efficiency percentage to a decimal
-        battery_efficiency_decimal = battery_efficiency / 100
-        # Calculate the energy available in the battery
-        available_energy = self.battery_level * battery_efficiency_decimal
+    def _calc_soc(self):
         # Calculate the state of charge (SoC)
-        self.soc = (available_energy / self.battery_capacity) * 100
-        self.soc_curve.append(self.soc)
+        self.soc = self.battery_level / self.battery_capacity
 
-    def add_mobility_data(self, mobility_data: pd.DataFrame, starting_date: str, num_days: int):
-        try:
-            data = MobilityDataAggregator(mobility_data)
-            self.mobility_data = data.prepare_mobility_data(starting_date, num_days)
-        except:
-            print('Adding mobility data failed.')
-        return self.mobility_data
+        # self.soc_curve.append(self.soc)
 
-    def calculate_range_anxiety(self):
-        current_trip = ""
-        next_trip = ""
+    def next_trip_needs(self, df, timestamp):
+        """ anxiety factor 1.5 """
+        last_trip = max(df['TRIPNUMBER'])
+        next_trip = df.loc[timestamp, 'TRIPNUMBER'] + 1
+        consumption_trips = df.groupby('TRIPNUMBER')['ECONSUMPTIONKWH'].sum()
+        if next_trip <= last_trip:
+            consumption_next_trip = consumption_trips.loc[next_trip]
+        else:
+            consumption_next_trip = consumption_trips.loc[next_trip - 1]
+
+        self.range_anxiety = consumption_next_trip * self.anxiety_factor
 
 
-class ElectricVehicleFlatCharge(ElectricVehicle):
-    def __init__(self, model, **params):
-        super().__init__(model)
-        self.max_power = 3.7
-        self.min_power = 1.22
+# class ElectricVehicleFlatCharge(ElectricVehicle):
+#     def __init__(self, model, **params):
+#         super().__init__(model)
+#         self.max_power = 3.7
+#         self.min_power = 1.22
 
-    # TODO
-    # Implement flat charging calculation
-    # implement soc to stop charging
-    # check each timestamp if soc already reached
-    # TODO implement rance anxiety
-    # self.min_soc xxxx
-    # self.range_anxiety
-    def print(self):
-        print("hello")
+# TODO
+# Implement flat charging calculation
+# implement soc to stop charging
+# check each timestamp if soc already reached
+
+# self.min_soc xxxx
+# self.range_anxiety
 
 
 if __name__ == '__main__':
     path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
-    raw_mobility_data = pd.read_csv(path)
-    unique_id = raw_mobility_data['ID_TERMINAL'].unique()[0]
+    raw_data = pd.read_csv(path)
 
-    # TODO Calculate average trip size and assign larger batteries for average long trips
     # initialize car object and retrieve expected battery capacity value
-    bmw_i3 = ElectricVehicle(model='bmw_i3')
+    bmw_i3 = ElectricVehicle(model='bmw_i3', target_soc=0.8)
+    mobility_data = MobilityDataAggregator(raw_data)
+    mobility_data = mobility_data.prepare_mobility_data(start_date='2008-07-19 00:00:00', num_days=1)
 
-    bmw_i3.add_mobility_data(mobility_data=raw_mobility_data,
-                             starting_date='2008-07-13',
-                             num_days=1)
+    for timestamp in mobility_data.index:
+        # print(timestamp)
+        # bmw_i3.next_trip_needs(mobility_data, timestamp)
+        bmw_i3.set_plug_in_status(mobility_data, timestamp)
+        bmw_i3.calculate_battery_level(mobility_data, timestamp)
 
-    timestamps = []
-    for timestamp, data_row in bmw_i3.mobility_data.iterrows():
-        battery_level = bmw_i3.calculate_battery_level(consumption=data_row['ECONSUMPTIONKWH'],
-                                                       battery_efficiency=100)
-        timestamps.append(timestamp)
-
-    # print(bmw_i3.unique_id)
-    # print(timestamps)
-    # print(bmw_i3.battery_level_curve)
-    # print(bmw_i3.load_curve)
-    # print(bmw_i3.soc_curve)
-
-    results = pd.DataFrame(
-        {
-            'timestamp': timestamps,
-            'battery_level': bmw_i3.battery_level_curve,
-            'load_curve': bmw_i3.load_curve,
-            'soc': bmw_i3.soc_curve,
-            'id': bmw_i3.unique_id
-        }
-    ).set_index('timestamp')
-
-    print(results)
+    # helper.set_print_options()
+    #
+    #
+    # print(mobility_data)
 
 # TODO build new class with results, access results easier and write functions to aggregate them
 # TODO aggregated mobility file - read it whole - store maybe as dict

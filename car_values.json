@@ -1,52 +1,62 @@
 {
     "bmw_i3": {
         "battery_capacity": 37.9,
-        "charging_power": 11,
+        "charging_power_home": 11,
+        "charging_power_work": 50,
         "number": 39013
     },
     "renault_zoe": {
         "battery_capacity": 52,
-        "charging_power": 11,
+        "charging_power_home": 22,
+        "charging_power_work": 50,
         "number": 84450
     },
     "tesla_model_3": {
-        "battery_capacity": 75,
-        "charging_power": 11,
+        "battery_capacity": 60,
+        "charging_power_home": 11,
+        "charging_power_work": 170,
         "number": 56902
     },
     "vw_up": {
         "battery_capacity": 32.3,
-        "charging_power": 11,
+        "charging_power_home": 7.2,
+        "charging_power_work": 40,
         "number": 50859
     },
     "vw_id3": {
-        "battery_capacity": 77,
-        "charging_power": 11,
+        "battery_capacity": 58,
+        "charging_power_home": 11,
+        "charging_power_work": 120,
         "number": 48483
     },
     "smart_fortwo": {
         "battery_capacity": 16.7,
-        "charging_power": 11,
+        "charging_power_home": 3.6,
+        "charging_power_work": 22,
         "number": 47683
     },
     "hyundai_kona": {
         "battery_capacity": 64,
-        "charging_power": 11,
+        "charging_power_home": 11,
+        "charging_power_work": 100,
         "number": 40374
     },
     "fiat_500": {
         "battery_capacity": 37.3,
-        "charging_power": 11,
+        "charging_power_home": 11,
+        "charging_power_work": 85,
         "number": 29035
     },
     "vw_golf": {
         "battery_capacity": 32,
-        "charging_power": 11,
+        "charging_power_home": 7.2,
+        "charging_power_work": 40,
         "number": 26891
     },
     "vw_id4_id5": {
         "battery_capacity": 77,
-        "charging_power": 11,
+        "charging_power_home": 11,
+        "charging_power_work": 135,
         "number": 25831
     }
 }
