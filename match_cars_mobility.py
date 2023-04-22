@@ -12,11 +12,11 @@ def match_cars_mobility_data():
     # Load the car models
     with open('car_values.json') as f:
         car_dict = json.load(f)
-
+    # sort the model according to their battery capacity to later match them
+    # the index represents the rank where 0 is small and 9 is large
     sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
 
     return sorted_models
-
 
 
 def label_mobility_data(df, no_deciles: int):
@@ -32,6 +32,8 @@ def label_mobility_data(df, no_deciles: int):
 
 
 def median_trip_length(df, car_id):
+    # Create a dict holding the median trip length for a car id, this dict will be appended to
+    # a large dict holding all car_ids later
     len_dict = {}
     trip_df = df.groupby('TRIPNUMBER').sum()
     med_trip_len = trip_df['DELTAPOS'].median()
@@ -40,24 +42,36 @@ def median_trip_length(df, car_id):
     return len_dict
 
 
-def create_median_trip_length(directory_path, id_segmentation_df):
+def is_private_car(unique_id, id_segmentation_df):
+    # Check if car_id is in one of the private car clusters (2, 3, 6, 8 represent commercial)
+    if id_segmentation_df.loc[id_segmentation_df['id'] == unique_id, 'CLUSTER'].values[0] in [1, 4, 5, 7]:
+        return True
+    else:
+        return False
+
+
+def create_median_trip_length(directory_path,
+                              id_segmentation_df):
         start = timeit.default_timer()
-        # retrieve all csv_files in the directory path
+        # retrieve all csv_files in the directory path to loop
         csv_files = glob.glob(directory_path + "/*.csv")
 
         len_dict = {}
-        # Loop thorugh all csv files for
+        # Loop thorugh all csv files with mobility data
         for file in csv_files:
             time_loop_iteration_start = timeit.default_timer()   # start timer
             mobility_data = pd.read_csv(file)
             unique_id = mobility_data['ID_TERMINAL'].unique()[0]    # get unique car id
-            # Check if car_id is in one of the private car clusters (2, 3, 6, 8 represent commercial)
-            if id_segmentation_df.loc[id_segmentation_df['id'] == unique_id, 'CLUSTER'].values[0] in [1, 4, 5, 7]:
+            # segmenatation_df is holding data about private and commercial cars
+            if is_private_car(unique_id=unique_id,
+                              id_segmentation_df=id_segmentation_df):
+                # Create the dataframe for short time
                 data = MobilityDataAggregator(mobility_data)
-                mobility_data = data.prepare_mobility_data(starting_date='2008-07-13', num_days=7)
+                mobility_data = data.prepare_mobility_data(start_date='2008-07-13', num_days=7)
                 # calculate the median trip length and store it in a dict
-                new_dict = median_trip_length(mobility_data, unique_id)
-                len_dict.update(new_dict)
+                median_trip_dict = median_trip_length(mobility_data, unique_id)
+                # Append the car_id with median trip length to dict
+                len_dict.update(median_trip_dict)
             time_loop_iteration_end = timeit.default_timer()
             print('Time: ', time_loop_iteration_end - time_loop_iteration_start, ' secs.')
 
@@ -120,6 +134,7 @@ if __name__ == '__main__':
         create_median_trip_length(directory_path, id_segmentation_df)
         df = pd.read_csv('median_trip_length.csv', index_col=0)
     df = label_mobility_data(df, no_deciles=no_clusters)
+    # All entries in df having trips match exactly one car
     number_of_cars = len(df)
 
     car_models = generate_cars_according_to_dist(number_of_cars)
@@ -133,22 +148,22 @@ if __name__ == '__main__':
     # SHOULD RATHER CHECK FOR THE CLOSEST VALUE NOT INCREASE IT FIRST
     # AND THEN DECREASE IT AFTER
 
+    # there is no car_size below 0 and above 9 (10 different cars)
     min_size = 0
     max_size = 9
 
     # for all car_models list of ~ 700 cars
     for model in car_models:
-        # TODO Create CarAgent here and then load the correct mobility data in the agent
         # get the car size for that model
-        size = sorted_models.index(model)
+        car_size = sorted_models.index(model)
         # As long as the car size of that model is above 0
-        while size >= min_size:
+        while car_size >= min_size:
             # Get a list of all indices of the dataframe (holding trip length of mobility data)
-            indices = df.index[df['decile_label'] == size].tolist()
+            indices = df.index[df['decile_label'] == car_size].tolist()
             # if the list is empty because no match between car size and trip length decile
             if not indices:
                 # Reduce the car size by one
-                size -= 1
+                car_size -= 1
             else:
                 # If car size matches trip length size chose a random entry of the indices
                 random_index = random.choice(indices)
@@ -158,11 +173,11 @@ if __name__ == '__main__':
                 df = df.drop(random_index)
                 break
         else:
-            size += 1
-            while size <= max_size:
-                indices = df.index[df['decile_label'] == size].tolist()
+            car_size += 1
+            while car_size <= max_size:
+                indices = df.index[df['decile_label'] == car_size].tolist()
                 if not indices:
-                    size += 1
+                    car_size += 1
                 else:
                     random_index = random.choice(indices)
                     car_id = df.loc[random_index, 'car_id']

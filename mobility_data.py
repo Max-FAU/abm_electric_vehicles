@@ -7,28 +7,27 @@ import helper as helper
 
 
 class MobilityDataAggregator:
-    def __init__(self, raw_mobility_data: pd.DataFrame):
-        self.unique_car_id = None
-
+    def __init__(self, raw_mobility_data: pd.DataFrame, start_date: str, end_date: str):
         self.raw_mobility_data = raw_mobility_data
         self.df_limited_time = pd.DataFrame()
         self.df_processed = pd.DataFrame()
 
-        self.starting_date = None
-        self.days = None
-        self.end_date = None
-
-    def _set_unique_id(self, id_col='ID_TERMINAL'):
-        unique_id = self.raw_mobility_data[id_col].unique()
-        if len(unique_id) > 1:
-            raise Exception('More than one IDs in id_col.')
-        self.unique_id = unique_id[0]
-
-    def _create_df_limited_time(self, start_date: str, days: int):
-        self.days = days
         self.start_date = pd.to_datetime(start_date)
-        self.end_date = self.start_date + timedelta(days=days)
+        self.end_date = pd.to_datetime(end_date)
 
+        self.median_trip_length = None
+        self.prepare_mobility_data(start_date=self.start_date,
+                                   end_date=self.end_date)
+        self.calc_median_trip_len()
+
+    # TODO move this maybe to car_agent
+    # def _set_unique_id(self, id_col='ID_TERMINAL'):
+    #     unique_id = self.raw_mobility_data[id_col].unique()
+    #     if len(unique_id) > 1:
+    #         raise Exception('More than one IDs in id_col.')
+    #     self.unique_id = unique_id[0]
+
+    def _create_df_limited_time(self, start_date: str, end_date: str):
         self.raw_mobility_data.loc[:, 'TIMESTAMP'] = pd.to_datetime(self.raw_mobility_data['TIMESTAMP'])
 
         raw_start_date = min(self.raw_mobility_data['TIMESTAMP'])
@@ -76,11 +75,14 @@ class MobilityDataAggregator:
         if self.df_processed.shape[0] % 96 != 0:
             raise Exception('Number of rows must be divisible by 96.')
 
-    def prepare_mobility_data(self, start_date: str, num_days: int) -> pd.DataFrame:
-        self._create_df_limited_time(start_date, num_days)
+    def prepare_mobility_data(self, start_date, end_date):
+        self._create_df_limited_time(start_date, end_date)
         self._aggregate_15_min_steps()
         self._data_cleaning()
-        return self.df_processed
+
+    def calc_median_trip_len(self):
+        trip_df = self.df_processed.groupby('TRIPNUMBER').sum()
+        self.median_trip_length = trip_df['DELTAPOS'].median()
 
 
 if __name__ == '__main__':
@@ -91,14 +93,9 @@ if __name__ == '__main__':
     except FileNotFoundError:
         mobility_data = pd.read_csv(path2)
 
-    data = MobilityDataAggregator(mobility_data)
-    mobility_data = data.prepare_mobility_data(start_date='2008-07-17', num_days=1)
-
-
-
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.expand_frame_repr', False)
-    print(mobility_data)
-
+    data = MobilityDataAggregator(mobility_data,
+                                  start_date='2008-07-17',
+                                  end_date='2008-07-18')
+    # print(data.df_processed)
+    print(data.df_processed)
     # mobility_dict = mobility_data.T.to_dict('dict')

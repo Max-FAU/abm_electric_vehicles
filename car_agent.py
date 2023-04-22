@@ -2,16 +2,18 @@ import json
 import pandas as pd
 import helper
 from mobility_data import MobilityDataAggregator
+import mesa
 
 
-class ElectricVehicle:
-    def __init__(self, model: str, target_soc: float):
+class ElectricVehicle(mesa.Agent):
+    def __init__(self, unique_id: int, model: str, target_soc: float):
         """
         :param model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
         :param target_soc: 0.00 - 1.00, charging happens until target SOC has been reached
         """
-
+        self.unique_id = unique_id
         self.model = model
+        self.car_size = None
 
         self.battery_capacity = None
         self.battery_level = None
@@ -28,13 +30,13 @@ class ElectricVehicle:
         self.current_charging = None
 
         # run this always when creating a car agent
-        self._initialize_car_values()
+        self.__initialize_car_values()
 
         # self.load_curve = []
         # self.battery_level_curve = []
         # self.soc_curve = []
 
-    def _initialize_car_values(self):
+    def __initialize_car_values(self):
         # load car values from JSON file in directory
         with open('car_values.json') as f:
             car_dict = json.load(f)
@@ -44,6 +46,20 @@ class ElectricVehicle:
         self.number_of_car = car_dict[self.model]["number"]
         self.charging_power_home = car_dict[self.model]["charging_power_home"]
         self.charging_power_word = car_dict[self.model]["charging_power_work"]
+
+        if self.car_size is None:
+            sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
+            self.car_size = sorted_models.index(self.model)
+
+    def __pick_mobility_data(self):
+        # create path to mobility data based on car_id
+        # load mobility data
+        # return unique_id
+
+        self.retrieve_private_commercial = ""
+
+        self.unique_id = "" # TODO FIND UNIQUE ID OF
+        self.mobility_data = ""
 
     def set_plug_in_status(self, df, timestamp):
 
@@ -136,6 +152,10 @@ class ElectricVehicle:
             consumption_next_trip = consumption_trips.loc[next_trip - 1]
 
         self.range_anxiety = consumption_next_trip * self.anxiety_factor
+
+    def step(self):
+        self.set_plug_in_status(mobility_data, timestamp)
+        self.calculate_battery_level(mobility_data, timestamp)
 
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
