@@ -3,10 +3,14 @@ import pandas as pd
 import helper
 from mobility_data import MobilityDataAggregator
 import mesa
+import random
 
 
 class ElectricVehicle(mesa.Agent):
-    def __init__(self, unique_id: int, model: str, target_soc: float):
+    # list of all picked mobility data to assign them only once
+    picked_mobility_data = []
+
+    def __init__(self, unique_id, model: str, target_soc: float, start_date: str, end_date: str):
         """
         :param model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
         :param target_soc: 0.00 - 1.00, charging happens until target SOC has been reached
@@ -17,12 +21,12 @@ class ElectricVehicle(mesa.Agent):
 
         self.battery_capacity = None
         self.battery_level = None
+        assert isinstance(target_soc, float), "Target SOC must be a float."
         self.target_soc = target_soc
         self.soc = None
 
         self.location = None
 
-        self.unique_id = None
         self.anxiety_factor = 1.5
         self.range_anxiety = None
 
@@ -32,9 +36,20 @@ class ElectricVehicle(mesa.Agent):
         # run this always when creating a car agent
         self.__initialize_car_values()
 
+        self.mobility_data = None
+        self.start_date = start_date
+        self.end_date = end_date
+        self.__load_mobility_data()
+
+        #TODO Check if this work, I do not want to create the agent with different timestamp
+        self.current_timestamp = None
+
         # self.load_curve = []
         # self.battery_level_curve = []
         # self.soc_curve = []
+
+    def set_timestamp(self, timestamp):
+        self.current_timestamp = timestamp
 
     def __initialize_car_values(self):
         # load car values from JSON file in directory
@@ -51,20 +66,39 @@ class ElectricVehicle(mesa.Agent):
             sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
             self.car_size = sorted_models.index(self.model)
 
-    def __pick_mobility_data(self):
-        # create path to mobility data based on car_id
-        # load mobility data
-        # return unique_id
+    def __load_mobility_data(self):
+        df = pd.read_csv('median_trip_length.csv', index_col=0)
 
-        self.retrieve_private_commercial = ""
+        min_car_size = 0
+        max_car_size = 9
 
-        self.unique_id = "" # TODO FIND UNIQUE ID OF
-        self.mobility_data = ""
+        potential_car_ids = df.index[df['decile_label'] == self.car_size].tolist()
+        potential_car_ids = [x for x in potential_car_ids if x not in ElectricVehicle.picked_mobility_data]
 
-    def set_plug_in_status(self, df, timestamp):
+        random_car_index = random.choice(potential_car_ids)
+        random_car_id = df.loc[random_car_index, 'car_id']
+        ElectricVehicle.picked_mobility_data += [random_car_id]
 
-        panel_session = df.loc[timestamp, 'ID_PANELSESSION']
-        current_index = df.index.get_loc(timestamp)
+        file_path = helper.create_file_path(random_car_id, test=True)
+
+        raw_mobility_data = pd.read_csv(file_path)
+        data_aggregator = MobilityDataAggregator(raw_mobility_data=raw_mobility_data,
+                                                 start_date=self.start_date,
+                                                 end_date=self.end_date)
+
+        self.mobility_data = data_aggregator.df_processed
+
+    def _set_unique_id(self, id_col='ID_TERMINAL'):
+        unique_id = self.mobility_data[id_col].unique()
+        if len(unique_id) > 1:
+            raise Exception('More than one IDs in id_col.')
+        self.unique_id = unique_id[0]
+
+
+    def set_plug_in_status(self, df):
+
+        panel_session = df.loc[self.current_timestamp, 'ID_PANELSESSION']
+        current_index = df.index.get_loc(self.current_timestamp)
 
         # first step for 15 minute buffer, since 1 timestep is 15 mins away
         if self.plugged_in is None:  # first time
@@ -89,14 +123,14 @@ class ElectricVehicle(mesa.Agent):
         if plugged_in and soc < target_soc and consumption == 0:
             return True
 
-    def calculate_battery_level(self, df, timestamp, charging_efficiency=0.95):
+    def calculate_battery_level(self, df, charging_efficiency=0.95):
 
         if self.battery_level is None:
             self.battery_level = self.battery_capacity
 
         self._calc_soc()
 
-        consumption = df.loc[timestamp, 'ECONSUMPTIONKWH']
+        consumption = df.loc[self.current_timestamp, 'ECONSUMPTIONKWH']
 
         charging = self.charging_possible(self.soc,
                                           self.target_soc,
@@ -141,10 +175,10 @@ class ElectricVehicle(mesa.Agent):
 
         # self.soc_curve.append(self.soc)
 
-    def next_trip_needs(self, df, timestamp):
+    def next_trip_needs(self, df):
         """ anxiety factor 1.5 """
         last_trip = max(df['TRIPNUMBER'])
-        next_trip = df.loc[timestamp, 'TRIPNUMBER'] + 1
+        next_trip = df.loc[self.current_timestamp, 'TRIPNUMBER'] + 1
         consumption_trips = df.groupby('TRIPNUMBER')['ECONSUMPTIONKWH'].sum()
         if next_trip <= last_trip:
             consumption_next_trip = consumption_trips.loc[next_trip]
@@ -154,8 +188,8 @@ class ElectricVehicle(mesa.Agent):
         self.range_anxiety = consumption_next_trip * self.anxiety_factor
 
     def step(self):
-        self.set_plug_in_status(mobility_data, timestamp)
-        self.calculate_battery_level(mobility_data, timestamp)
+        self.set_plug_in_status(self.mobility_data)
+        self.calculate_battery_level(self.mobility_data)
 
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
@@ -178,15 +212,20 @@ if __name__ == '__main__':
     raw_data = pd.read_csv(path)
 
     # initialize car object and retrieve expected battery capacity value
-    bmw_i3 = ElectricVehicle(model='bmw_i3', target_soc=0.8)
-    mobility_data = MobilityDataAggregator(raw_data)
-    mobility_data = mobility_data.prepare_mobility_data(start_date='2008-07-19 00:00:00', num_days=1)
+    bmw_i3 = ElectricVehicle(model='bmw_i3',
+                             target_soc=0.8,
+                             start_date='2008-07-18 00:00:00',
+                             end_date='2008-07-20 00:00:00')
 
-    for timestamp in mobility_data.index:
-        # print(timestamp)
-        # bmw_i3.next_trip_needs(mobility_data, timestamp)
-        bmw_i3.set_plug_in_status(mobility_data, timestamp)
-        bmw_i3.calculate_battery_level(mobility_data, timestamp)
+    # mobility_data = MobilityDataAggregator(raw_data,
+    #                                        start_date='2008-07-18 00:00:00',
+    #                                        end_date='2008-07-20 00:00:00')
+
+    # for timestamp in mobility_data.df_processed.index:
+    #     # print(timestamp)
+    #     # bmw_i3.next_trip_needs(mobility_data, timestamp)
+    #     bmw_i3.set_timestamp(timestamp=timestamp)
+
 
     # helper.set_print_options()
     #

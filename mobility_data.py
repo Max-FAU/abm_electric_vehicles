@@ -16,18 +16,11 @@ class MobilityDataAggregator:
         self.end_date = pd.to_datetime(end_date)
 
         self.median_trip_length = None
-        self.prepare_mobility_data(start_date=self.start_date,
-                                   end_date=self.end_date)
+
+        self.prepare_mobility_data()
         self.calc_median_trip_len()
 
-    # TODO move this maybe to car_agent
-    # def _set_unique_id(self, id_col='ID_TERMINAL'):
-    #     unique_id = self.raw_mobility_data[id_col].unique()
-    #     if len(unique_id) > 1:
-    #         raise Exception('More than one IDs in id_col.')
-    #     self.unique_id = unique_id[0]
-
-    def _create_df_limited_time(self, start_date: str, end_date: str):
+    def _create_df_limited_time(self):
         self.raw_mobility_data.loc[:, 'TIMESTAMP'] = pd.to_datetime(self.raw_mobility_data['TIMESTAMP'])
 
         raw_start_date = min(self.raw_mobility_data['TIMESTAMP'])
@@ -38,7 +31,7 @@ class MobilityDataAggregator:
         if raw_end_date < self.end_date:
             print('End date: {} is too late for this data set.'.format(raw_end_date))
 
-        self.df_limited_time = self.raw_mobility_data[(self.raw_mobility_data['TIMESTAMP'] >= start_date) &
+        self.df_limited_time = self.raw_mobility_data[(self.raw_mobility_data['TIMESTAMP'] >= self.start_date) &
                                                       (self.raw_mobility_data['TIMESTAMP'] < self.end_date)]
 
     def _aggregate_15_min_steps(self):
@@ -75,8 +68,8 @@ class MobilityDataAggregator:
         if self.df_processed.shape[0] % 96 != 0:
             raise Exception('Number of rows must be divisible by 96.')
 
-    def prepare_mobility_data(self, start_date, end_date):
-        self._create_df_limited_time(start_date, end_date)
+    def prepare_mobility_data(self):
+        self._create_df_limited_time()
         self._aggregate_15_min_steps()
         self._data_cleaning()
 

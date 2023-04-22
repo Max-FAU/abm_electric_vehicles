@@ -118,74 +118,70 @@ def number_of_each_car(car_model, car_models_list):
 
 if __name__ == '__main__':
     directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
-    id_segmentation = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\segmented_ids_07112021.xlsx"
-    id_segmentation_df = pd.read_excel(id_segmentation)
-    id_segmentation_df = id_segmentation_df[['CLUSTER', 'id']]
+    # id_segmentation = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\segmented_ids_07112021.xlsx"
+    # id_segmentation_df = pd.read_excel(id_segmentation)
+    # id_segmentation_df = id_segmentation_df[['CLUSTER', 'id']]
 
     # create a list with car types sorted to their battery capacity
     sorted_models = match_cars_mobility_data()
     # count the length of the list to figure out how many clusters needed
     no_clusters = len(sorted_models)
-
-    # read the dataframe with car_id and trip_length
-    try:
-        df = pd.read_csv('median_trip_length.csv', index_col=0)
-    except FileNotFoundError:
-        create_median_trip_length(directory_path, id_segmentation_df)
-        df = pd.read_csv('median_trip_length.csv', index_col=0)
+    df = pd.read_csv('median_trip_length.csv', index_col=0)
     df = label_mobility_data(df, no_deciles=no_clusters)
     # All entries in df having trips match exactly one car
-    number_of_cars = len(df)
 
-    car_models = generate_cars_according_to_dist(number_of_cars)
-    print("Created a list containing following car models: ")
-    for model in set(car_models):
-        number = number_of_each_car(car_model=model, car_models_list=car_models)
-        print("Number: {} | Model: {} | Size: {}".format(number, model, sorted_models.index(model)))
-
-    # TODO
-    # REFACTOR VERY COMPLICATED
-    # SHOULD RATHER CHECK FOR THE CLOSEST VALUE NOT INCREASE IT FIRST
-    # AND THEN DECREASE IT AFTER
-
-    # there is no car_size below 0 and above 9 (10 different cars)
-    min_size = 0
-    max_size = 9
-
-    # for all car_models list of ~ 700 cars
-    for model in car_models:
-        # get the car size for that model
-        car_size = sorted_models.index(model)
-        # As long as the car size of that model is above 0
-        while car_size >= min_size:
-            # Get a list of all indices of the dataframe (holding trip length of mobility data)
-            indices = df.index[df['decile_label'] == car_size].tolist()
-            # if the list is empty because no match between car size and trip length decile
-            if not indices:
-                # Reduce the car size by one
-                car_size -= 1
-            else:
-                # If car size matches trip length size chose a random entry of the indices
-                random_index = random.choice(indices)
-                # Retrieve the car_id for the random index
-                car_id = df.loc[random_index, 'car_id']
-                # Remove it from the dataframe that it cannot be chosen 2 times
-                df = df.drop(random_index)
-                break
-        else:
-            car_size += 1
-            while car_size <= max_size:
-                indices = df.index[df['decile_label'] == car_size].tolist()
-                if not indices:
-                    car_size += 1
-                else:
-                    random_index = random.choice(indices)
-                    car_id = df.loc[random_index, 'car_id']
-                    df = df.drop(random_index)
-                    break
-
-        # create the file path to read the mobility data for the car model
-        directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
-        file_name = '\quarterly_simulation_' + str(car_id) + '.csv'
-        file = directory_path + file_name
-        df_car = pd.read_csv(file)
+    #
+    # number_of_cars = len(df)
+    #
+    # car_models = generate_cars_according_to_dist(number_of_cars)
+    # print("Created a list containing following car models: ")
+    # for model in set(car_models):
+    #     number = number_of_each_car(car_model=model, car_models_list=car_models)
+    #     print("Number: {} | Model: {} | Size: {}".format(number, model, sorted_models.index(model)))
+    #
+    # # TODO
+    # # REFACTOR VERY COMPLICATED
+    # # SHOULD RATHER CHECK FOR THE CLOSEST VALUE NOT INCREASE IT FIRST
+    # # AND THEN DECREASE IT AFTER
+    #
+    # # there is no car_size below 0 and above 9 (10 different cars)
+    # min_size = 0
+    # max_size = 9
+    #
+    # # for all car_models list of ~ 700 cars
+    # for model in car_models:
+    #     # get the car size for that model
+    #     car_size = sorted_models.index(model)
+    #     # As long as the car size of that model is above 0
+    #     while car_size >= min_size:
+    #         # Get a list of all indices of the dataframe (holding trip length of mobility data)
+    #         indices = df.index[df['decile_label'] == car_size].tolist()
+    #         # if the list is empty because no match between car size and trip length decile
+    #         if not indices:
+    #             # Reduce the car size by one
+    #             car_size -= 1
+    #         else:
+    #             # If car size matches trip length size chose a random entry of the indices
+    #             random_index = random.choice(indices)
+    #             # Retrieve the car_id for the random index
+    #             car_id = df.loc[random_index, 'car_id']
+    #             # Remove it from the dataframe that it cannot be chosen 2 times
+    #             df = df.drop(random_index)
+    #             break
+    #     else:
+    #         car_size += 1
+    #         while car_size <= max_size:
+    #             indices = df.index[df['decile_label'] == car_size].tolist()
+    #             if not indices:
+    #                 car_size += 1
+    #             else:
+    #                 random_index = random.choice(indices)
+    #                 car_id = df.loc[random_index, 'car_id']
+    #                 df = df.drop(random_index)
+    #                 break
+    #
+    #     # create the file path to read the mobility data for the car model
+    #     directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
+    #     file_name = '\quarterly_simulation_' + str(car_id) + '.csv'
+    #     file = directory_path + file_name
+    #     df_car = pd.read_csv(file)

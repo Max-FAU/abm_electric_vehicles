@@ -64,20 +64,24 @@ def load_test_timestamps():
 
 
 if __name__ == '__main__':
-    timestamps = load_test_timestamps()
-    mobility_data = read_data_local_test()
-
-    bmw_i3 = ElectricVehicle(model='bmw_i3', target_soc=1.00)
-
-    data = MobilityDataAggregator(mobility_data)
-    mobility_data = data.prepare_mobility_data(start_date='2008-07-13', num_days=7)
-    mobility_dict = mobility_data.T.to_dict('dict')
-    # print(mobility_dict)
-
-    for step in timestamps:
-        timestamp_consumption = mobility_dict[step]['ECONSUMPTIONKWH']
-        bmw_i3.calculate_battery_level(consumption=timestamp_consumption,
-                                       charging_efficiency=0.95)
-        print(bmw_i3.battery_level)
-
-    calculate_range_anxiety()
+    # timestamps = load_test_timestamps()
+    # mobility_data = read_data_local_test()
+    #
+    # bmw_i3 = ElectricVehicle(model='bmw_i3', target_soc=1.00)
+    #
+    # data = MobilityDataAggregator(mobility_data)
+    # mobility_data = data.prepare_mobility_data(start_date='2008-07-13', num_days=7)
+    # mobility_dict = mobility_data.T.to_dict('dict')
+    # # print(mobility_dict)
+    #
+    # for step in timestamps:
+    #     timestamp_consumption = mobility_dict[step]['ECONSUMPTIONKWH']
+    #     bmw_i3.calculate_battery_level(consumption=timestamp_consumption,
+    #                                    charging_efficiency=0.95)
+    #     print(bmw_i3.battery_level)
+    #
+    # calculate_range_anxiety()
+    with open('private_cars.json', 'r') as f:
+        data = json.load(f)
+    private_car_ids = [d['id'] for d in data] # extract the ids
+    print(private_car_ids)

@@ -41,10 +41,19 @@ class ChargingModel(mesa.Model):
         # TODO check if SimultaneousActivation is better
         self.schedule = mesa.time.RandomActivation(self)
         self.num_agents = num_agents
-        self.list_agents = generate_cars_according_to_dist(self.num_agents)
-        for car_model in self.list_agents:
-            agent = ElectricVehicle(model=car_model, unique_id=1, target_soc=1)
+        self.list_agents = []
+        self.list_models = generate_cars_according_to_dist(self.num_agents)
+        i = 0
+        for car_model in self.list_models:
+            agent = ElectricVehicle(model=car_model,
+                                    unique_id=i,
+                                    target_soc=1.0,
+                                    start_date=self.start_date,
+                                    end_date=self.end_date)
+
             self.schedule.add(agent)
+            i += 1
+            agent.set_timestamp(self.timestamp)
 
     def step(self):
 
@@ -58,14 +67,8 @@ class ChargingModel(mesa.Model):
 
 
 if __name__ == '__main__':
-    model = ChargingModel(1, '2008-07-13', '2008-07-14')
-    print(model.list_agents)
-
-    # path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
-    # raw_data = pd.read_csv(path)
-    #
-    # mobility_data = MobilityDataAggregator(raw_data)
-    # mobility_data = mobility_data.prepare_mobility_data(start_date='2008-07-19 00:00:00', num_days=1)
+    model = ChargingModel(30, '2008-07-13', '2008-07-14')
+    # print(model.list_agents)
 
     # for timestamp in mobility_data.index:
     #     # print(timestamp)
