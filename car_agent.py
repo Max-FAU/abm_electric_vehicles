@@ -80,14 +80,26 @@ class ElectricVehicle(mesa.Agent):
     def load_mobility_data(self):
         df = pd.read_csv('median_trip_length.csv', index_col=0)
 
-        # TODO if there are car size == trip length otherwise pick other trip lengths
         # TODO check if num of agents > 702
         min_car_size = 0
         max_car_size = 9
 
+        def filter_car_ids(car_ids, min_size, max_size):
+            car_ids = [x for x in car_ids if x not in ElectricVehicle.picked_mobility_data]
+            if not car_ids:
+                car_ids = df.index[(df['decile_label'] >= min_size) & (df['decile_label'] <= max_size)].tolist()
+                car_ids = [x for x in car_ids if x not in ElectricVehicle.picked_mobility_data]
+            return car_ids
+
         potential_car_ids_index = df.index[df['decile_label'] == self.car_size].tolist()
-        # if potential_car_ids_index is empty, just create new
-        potential_car_ids_index = [x for x in potential_car_ids_index if x not in ElectricVehicle.picked_mobility_data]
+        potential_car_ids_index = filter_car_ids(potential_car_ids_index, min_car_size, max_car_size)
+
+        # potential_car_ids_index = df.index[df['decile_label'] == self.car_size].tolist()
+        # potential_car_ids_index = [x for x in potential_car_ids_index if x not in ElectricVehicle.picked_mobility_data]
+        #
+        # if not potential_car_ids_index:
+        #     potential_car_ids_index = df.index[(df['decile_label'] >= min_car_size) and (df['decile_label'] <= max_car_size)].tolist()
+        #     potential_car_ids_index = [x for x in potential_car_ids_index if x not in ElectricVehicle.picked_mobility_data]
 
         random_car_index = random.choice(potential_car_ids_index)
         random_car_id = df.loc[random_car_index, 'car_id']
@@ -164,7 +176,7 @@ class ElectricVehicle(mesa.Agent):
                 self.battery_level -= self.consumption
 
             self.charging_value = 0
-        else: # charging
+        else:  # charging
             # TODO charging power home should be charging_power -> min(charging_power_home, charging_power_station)
             potential_battery_level = self.battery_level + self.charging_power_home
             if potential_battery_level >= self.battery_capacity:
