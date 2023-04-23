@@ -19,6 +19,7 @@ class ChargingModel(mesa.Model):
 
         # TODO check if SimultaneousActivation is better
         self.schedule = mesa.time.RandomActivation(self)
+        assert num_agents <= 700, "Only 700 agents are possible"
         self.num_agents = num_agents
         self.list_agents = []
         self.list_models = self.generate_cars_according_to_dist()

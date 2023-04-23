@@ -94,13 +94,6 @@ class ElectricVehicle(mesa.Agent):
         potential_car_ids_index = df.index[df['decile_label'] == self.car_size].tolist()
         potential_car_ids_index = filter_car_ids(potential_car_ids_index, min_car_size, max_car_size)
 
-        # potential_car_ids_index = df.index[df['decile_label'] == self.car_size].tolist()
-        # potential_car_ids_index = [x for x in potential_car_ids_index if x not in ElectricVehicle.picked_mobility_data]
-        #
-        # if not potential_car_ids_index:
-        #     potential_car_ids_index = df.index[(df['decile_label'] >= min_car_size) and (df['decile_label'] <= max_car_size)].tolist()
-        #     potential_car_ids_index = [x for x in potential_car_ids_index if x not in ElectricVehicle.picked_mobility_data]
-
         random_car_index = random.choice(potential_car_ids_index)
         random_car_id = df.loc[random_car_index, 'car_id']
         ElectricVehicle.picked_mobility_data += [random_car_index]
