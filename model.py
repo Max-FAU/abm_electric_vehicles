@@ -24,18 +24,39 @@ class ChargingModel(mesa.Model):
         self.list_models = self.generate_cars_according_to_dist()
 
         i = 0
+
         while i < len(self.list_models):
             car_model = self.list_models[i]
             try:
                 agent = ElectricVehicle(unique_id=i,
-                                        model=car_model,
+                                        car_model=car_model,
                                         target_soc=1.0,
                                         start_date=self.start_date,
-                                        end_date=self.end_date)
+                                        end_date=self.end_date,
+                                        model=self)
                 self.schedule.add(agent)
             except Exception as e:
                 print("Adding agent to model failed.")
+
+            print("Added agent number {} to the model.".format(i))
             i += 1
+
+        self.datacollector = mesa.DataCollector(
+            model_reporters={
+                "num_agents": lambda model: model.num_agents,
+                "total_recharge_value": self.get_total_recharge_value
+            },
+            agent_reporters={
+                "timestamp": lambda a: a.current_timestamp,
+                "recharge_value": lambda a: a.charging_value,
+                "battery_level": lambda a: a.battery_level,
+                "soc": lambda a: a.soc
+            }
+        )
+
+    def get_total_recharge_value(self):
+        total_battery_level = sum([agent.charging_value for agent in self.schedule.agents])
+        return total_battery_level
 
     def generate_cars_according_to_dist(self):
         with open('car_values.json', 'r') as f:
@@ -58,3 +79,5 @@ class ChargingModel(mesa.Model):
 
     def step(self):
         self.schedule.step()
+        if self.schedule.steps > 0:
+            self.datacollector.collect(self)

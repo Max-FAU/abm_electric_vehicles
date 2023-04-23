@@ -12,20 +12,26 @@ class ElectricVehicle(mesa.Agent):
     picked_mobility_data = []
 
     def __init__(self, unique_id: int,
-                 model: str,
+                 car_model: str,
                  target_soc: float,
                  start_date: str,
-                 end_date: str):
+                 end_date: str,
+                 model):
         """
-        :param model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
+        :param car_model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
         :param target_soc: 0.00 - 1.00, charging happens until target SOC has been reached
         """
+        # TODO sort them differently
+        # insert the super class
+        super().__init__(unique_id, model)
+
+        self.charging_value = None
         self.charging_power_word = None
         self.charging_power_home = None
         self.number_of_car = None
         self.car_id = None
         self.unique_id = unique_id
-        self.model = model
+        self.car_model = car_model
         self.car_size = None
 
         self.battery_capacity = None
@@ -36,8 +42,6 @@ class ElectricVehicle(mesa.Agent):
         self.soc = None
 
         self.consumption = None
-
-        self.location = None
 
         self.anxiety_factor = 1.5
         self.range_anxiety = None
@@ -55,10 +59,6 @@ class ElectricVehicle(mesa.Agent):
 
         self.current_timestamp = None
 
-        # self.load_curve = []
-        # self.battery_level_curve = []
-        # self.soc_curve = []
-
     def set_timestamp(self, timestamp):
         self.current_timestamp = timestamp
 
@@ -68,14 +68,14 @@ class ElectricVehicle(mesa.Agent):
             car_dict = json.load(f)
 
         # retrieve and set car values
-        self.battery_capacity = car_dict[self.model]["battery_capacity"]
-        self.number_of_car = car_dict[self.model]["number"]
-        self.charging_power_home = car_dict[self.model]["charging_power_home"]
-        self.charging_power_word = car_dict[self.model]["charging_power_work"]
+        self.battery_capacity = car_dict[self.car_model]["battery_capacity"]
+        self.number_of_car = car_dict[self.car_model]["number"]
+        self.charging_power_home = car_dict[self.car_model]["charging_power_home"]
+        self.charging_power_word = car_dict[self.car_model]["charging_power_work"]
 
         if self.car_size is None:
             sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
-            self.car_size = sorted_models.index(self.model)
+            self.car_size = sorted_models.index(self.car_model)
 
     def load_mobility_data(self):
         df = pd.read_csv('median_trip_length.csv', index_col=0)
@@ -85,15 +85,17 @@ class ElectricVehicle(mesa.Agent):
         min_car_size = 0
         max_car_size = 9
 
-        potential_car_ids = df.index[df['decile_label'] == self.car_size].tolist()
-        potential_car_ids = [x for x in potential_car_ids if x not in ElectricVehicle.picked_mobility_data]
+        potential_car_ids_index = df.index[df['decile_label'] == self.car_size].tolist()
+        # if potential_car_ids_index is empty, just create new
+        potential_car_ids_index = [x for x in potential_car_ids_index if x not in ElectricVehicle.picked_mobility_data]
 
-        random_car_index = random.choice(potential_car_ids)
+        random_car_index = random.choice(potential_car_ids_index)
         random_car_id = df.loc[random_car_index, 'car_id']
-        ElectricVehicle.picked_mobility_data += [random_car_id]
+        ElectricVehicle.picked_mobility_data += [random_car_index]
         self.car_id = random_car_id
 
         # TEST True = Set local directory for mobility data
+        # Load correct mobility file
         file_path = helper.create_file_path(random_car_id, test=False)
 
         raw_mobility_data = pd.read_csv(file_path)
@@ -102,7 +104,7 @@ class ElectricVehicle(mesa.Agent):
                                                  end_date=self.end_date)
 
         self.mobility_data = data_aggregator.df_processed
-        print("... mobility data loaded successfully.")
+        print("... mobility data for car {} loaded successfully.".format(self.car_id))
 
     def get_mobility_data(self):
         return self.mobility_data
@@ -138,6 +140,7 @@ class ElectricVehicle(mesa.Agent):
         if plugged_in and soc < target_soc and consumption == 0:
             return True
 
+    # TODO Implement charging efficiency
     def calculate_battery_level(self, charging_efficiency=0.95):
 
         if self.battery_level is None:
@@ -159,35 +162,25 @@ class ElectricVehicle(mesa.Agent):
                 self.battery_level -= new_consumption_value
             else:
                 self.battery_level -= self.consumption
-            # print("consumption")
-        elif charging:
+
+            self.charging_value = 0
+        else: # charging
             # TODO charging power home should be charging_power -> min(charging_power_home, charging_power_station)
             potential_battery_level = self.battery_level + self.charging_power_home
             if potential_battery_level >= self.battery_capacity:
                 over_charged_value = potential_battery_level - self.battery_capacity
-                new_charging_value = max(0, self.charging_power_home - over_charged_value)
-                self.battery_level += new_charging_value
+                self.charging_value = max(0, self.charging_power_home - over_charged_value)
+                self.battery_level += self.charging_value
                 # self.load_curve.append(new_charging_value)
             else:
                 # check for target soc and reduce charging power according to it
-                charging_value = self.target_soc * self.battery_capacity - self.battery_level
-                charging_value = max(charging_value, self.charging_power_home)
-                self.battery_level += charging_value
-            # self.load_curve.append(self.charging_power)
-        # print("charging")
-        else:
-            # print("Car is plugged in with consumption.")
-            pass
-
-        # self.battery_level_curve.append(self.battery_level)
-        # self._calc_soc()
-        # return self.battery_level
+                self.charging_value = self.target_soc * self.battery_capacity - self.battery_level
+                self.charging_value = max(self.charging_value, self.charging_power_home)
+                self.battery_level += self.charging_value
 
     def calc_soc(self):
         # Calculate the state of charge (SoC)
         self.soc = self.battery_level / self.battery_capacity
-
-        # self.soc_curve.append(self.soc)
 
     def next_trip_needs(self):
         """ anxiety factor 1.5 """
@@ -211,15 +204,16 @@ class ElectricVehicle(mesa.Agent):
 
         self.set_plug_in_status()
         self.calculate_battery_level()
-        print("")
-        print("my car id is: ", self.car_id)
-        print("my car model is: ", self.model)
-        print("current timestamp: ", self.current_timestamp)
-        print("my battery capacity: ", self.battery_capacity)
-        print("my battery lvl: ", self.battery_level)
-        print("my consumption: ", self.consumption)
-        print("my soc is: ", self.soc)
-        print("")
+        # print("")
+        # print("my car id is: ", self.car_id)
+        # print("my car model is: ", self.model)
+        # print("current timestamp: ", self.current_timestamp)
+        # print("my battery capacity: ", self.battery_capacity)
+        # print("my battery lvl: ", self.battery_level)
+        # print("my consumption: ", self.consumption)
+        # print("my charging value: ", self.charging_value)
+        # print("my soc is: ", self.soc)
+        # print("")
 
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
@@ -228,46 +222,7 @@ class ElectricVehicle(mesa.Agent):
 #         self.max_power = 3.7
 #         self.min_power = 1.22
 
-# TODO
-# Implement flat charging calculation
-# implement soc to stop charging
-# check each timestamp if soc already reached
-
-# self.min_soc xxxx
-# self.range_anxiety
-
-
-if __name__ == '__main__':
-    path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
-    raw_data = pd.read_csv(path)
-
-    # initialize car object and retrieve expected battery capacity value
-    bmw_i3 = ElectricVehicle(model='bmw_i3',
-                             target_soc=0.8,
-                             start_date='2008-07-18 00:00:00',
-                             end_date='2008-07-20 00:00:00')
-
-    # mobility_data = MobilityDataAggregator(raw_data,
-    #                                        start_date='2008-07-18 00:00:00',
-    #                                        end_date='2008-07-20 00:00:00')
-
-    # for timestamp in mobility_data.df_processed.index:
-    #     # print(timestamp)
-    #     # bmw_i3.next_trip_needs(mobility_data, timestamp)
-    #     bmw_i3.set_timestamp(timestamp=timestamp)
-
-
-    # helper.set_print_options()
-    #
-    #
-    # print(mobility_data)
-
-# TODO build new class with results, access results easier and write functions to aggregate them
-# TODO aggregated mobility file - read it whole - store maybe as dict
-# TODO have timestep as key and consumption as values
-
-# TODO calculate how much energy the next trip needs
-# TODO implement the check for SOC, charge only until SOC has been reached
+# TODO implement power_grid_class
 # TODO implement charging only between 18:00 and 06:00
 # TODO implement charging in flat manner, means calculate the time the car stands
 # TODO divide the charging power by the time the car has to charge

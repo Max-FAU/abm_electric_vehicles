@@ -1,9 +1,4 @@
 import pandas as pd
-from datetime import timedelta
-import json
-import matplotlib.pyplot as plt
-import numpy as np
-import helper as helper
 
 
 class MobilityDataAggregator:
@@ -85,19 +80,3 @@ class MobilityDataAggregator:
 
     def get_processed_df(self):
         return self.df_processed
-
-
-if __name__ == '__main__':
-    path1 = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_295.csv"
-    path2 = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_80.csv"
-    try:
-        mobility_data = pd.read_csv(path1)
-    except FileNotFoundError:
-        mobility_data = pd.read_csv(path2)
-
-    data = MobilityDataAggregator(mobility_data,
-                                  start_date='2008-07-17',
-                                  end_date='2008-07-18')
-    # print(data.df_processed)
-    print(data.df_processed)
-    # mobility_dict = mobility_data.T.to_dict('dict')
