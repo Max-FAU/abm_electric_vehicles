@@ -43,34 +43,34 @@ class ChargingModel(mesa.Model):
         self.num_agents = num_agents
         self.list_agents = []
         self.list_models = generate_cars_according_to_dist(self.num_agents)
-        i = 0
-        for car_model in self.list_models:
-            agent = ElectricVehicle(model=car_model,
-                                    unique_id=i,
-                                    target_soc=1.0,
-                                    start_date=self.start_date,
-                                    end_date=self.end_date)
 
-            self.schedule.add(agent)
+        i = 0
+        while i < len(self.list_models):
+            car_model = self.list_models[i]
+            try:
+                agent = ElectricVehicle(unique_id=i,
+                                        model=car_model,
+                                        target_soc=1.0,
+                                        start_date=self.start_date,
+                                        end_date=self.end_date)
+                self.schedule.add(agent)
+            except Exception as e:
+                print("Adding agent to model failed.")
             i += 1
-            agent.set_timestamp(self.timestamp)
 
     def step(self):
-
-        if self.timestamp is None:
-            self.timestamp = self.start_date
-        else:
-            # each step add 15 minutes
-            self.timestamp = self.timestamp + datetime.timedelta(minutes=15)
-
         self.schedule.step()
 
 
 if __name__ == '__main__':
-    model = ChargingModel(30, '2008-07-13', '2008-07-14')
-    # print(model.list_agents)
+    start_date = '2008-07-13'
+    end_date = '2008-07-14'
+    num_agents = 1
 
-    # for timestamp in mobility_data.index:
-    #     # print(timestamp)
-    #     # bmw_i3.next_trip_needs(mobility_data, timestamp)
-    #     model.step()
+    time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
+    num_intervals = int(time_diff / datetime.timedelta(minutes=15))
+
+    model = ChargingModel(num_agents, start_date, end_date)
+
+    for i in range(num_intervals):
+        model.step()

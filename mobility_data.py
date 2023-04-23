@@ -77,6 +77,15 @@ class MobilityDataAggregator:
         trip_df = self.df_processed.groupby('TRIPNUMBER').sum()
         self.median_trip_length = trip_df['DELTAPOS'].median()
 
+    def get_raw_df(self):
+        return self.raw_mobility_data
+
+    def get_limited_time_df(self):
+        return self.df_limited_time
+
+    def get_processed_df(self):
+        return self.df_processed
+
 
 if __name__ == '__main__':
     path1 = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_295.csv"
