@@ -236,4 +236,4 @@ class ElectricVehicle(mesa.Agent):
 # TODO divide the charging power by the time the car has to charge
 
 if __name__ == "__main__":
-    agent = ElectricVehicle(1, "bmw_i3", 1.0, '2008-07-13', '2008-07-27')
+    agent = ElectricVehicle(1, "renault_zoe", 1.0, '2008-07-13', '2008-07-27')

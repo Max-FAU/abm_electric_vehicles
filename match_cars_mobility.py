@@ -46,6 +46,7 @@ def label_mobility_data(df, no_deciles: int):
     df = df.dropna()
     # Label the car_ids with 10 different numbers in ascending order (1 = short trip length, 10 = long trip length
     # 10 because we have 10 different cars
+    df = df.copy()
     df['decile_label'] = pd.qcut(df['median_trip_length'], q=no_deciles, labels=False, duplicates='drop')
     df = df.sort_values('decile_label')
     df = df.reset_index(drop=True)
