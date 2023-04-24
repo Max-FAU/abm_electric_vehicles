@@ -81,6 +81,11 @@ class ElectricityGridBus:
 
 
 if __name__ == '__main__':
+    # We could take one of these transformers, e.g. ABB DRY-TYPE TRANSFORMER 25 kVA 480-120/240V
+    # https://electrification.us.abb.com/products/transformers-low-voltage-dry-type
+    # take siemens https://mall.industry.siemens.com/mall/de/WW/Catalog/Products/10283675
+    # size depends on the phases we want
+    # usually we have as output 400 V
     num_households = 24
     transformer = ElectricityGridBus(1, num_households, 3500)
     # print(transformer.transformer_capacity)
