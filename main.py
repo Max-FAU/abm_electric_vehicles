@@ -8,8 +8,8 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-14'
-    num_agents = 3
-    model_runs = 5
+    num_agents = 24
+    model_runs = 30
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))

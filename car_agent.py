@@ -4,7 +4,7 @@ import helper
 import datetime
 from mobility_data import MobilityDataAggregator
 import mesa
-import random
+import match_cars_mobility as mcm
 
 
 class ElectricVehicle(mesa.Agent):
@@ -16,7 +16,7 @@ class ElectricVehicle(mesa.Agent):
                  target_soc: float,
                  start_date: str,
                  end_date: str,
-                 model):
+                 model=None):
         """
         :param car_model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
         :param target_soc: 0.00 - 1.00, charging happens until target SOC has been reached
@@ -78,32 +78,44 @@ class ElectricVehicle(mesa.Agent):
             self.car_size = sorted_models.index(self.car_model)
 
     def load_mobility_data(self):
-        df = pd.read_csv('median_trip_length.csv', index_col=0)
+        # this file generated with one time run in match_cars_mobility.py
+        file_name_median_trip_len = 'median_trip_length.csv'
+        try:
+            df = pd.read_csv(file_name_median_trip_len, index_col=0)
+        except:
+            print("Mobility mapping file needs to be generated once.\n"
+                  "This might take a while.")
+            directory_path = helper.get_directory_path()
+            no_clusters = len(mcm.sort_cars_size())
+            mcm.create_median_trip_length_file(directory_path=directory_path,
+                                               start_date=self.start_date,
+                                               end_date=self.end_date,
+                                               no_deciles=no_clusters,
+                                               file_name=file_name_median_trip_len)
+            df = pd.read_csv(file_name_median_trip_len, index_col=0)
 
-        # TODO check if num of agents > 702
-        min_car_size = 0
-        max_car_size = 9
-
-        def filter_car_ids(car_ids, min_size, max_size):
-            car_ids = [x for x in car_ids if x not in ElectricVehicle.picked_mobility_data]
-            if not car_ids:
-                car_ids = df.index[(df['decile_label'] >= min_size) & (df['decile_label'] <= max_size)].tolist()
-                car_ids = [x for x in car_ids if x not in ElectricVehicle.picked_mobility_data]
-            return car_ids
-
-        potential_car_ids_index = df.index[df['decile_label'] == self.car_size].tolist()
-        potential_car_ids_index = filter_car_ids(potential_car_ids_index, min_car_size, max_car_size)
-
-        random_car_index = random.choice(potential_car_ids_index)
-        random_car_id = df.loc[random_car_index, 'car_id']
-        ElectricVehicle.picked_mobility_data += [random_car_index]
+        # check all already picked 'car_ids' and filter them out of df
+        df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
+        # if the dataframe is empty clean the picked cars and start again / mobility data can be picked twice
+        if df.empty:
+            ElectricVehicle.picked_mobility_data.clear()
+            df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
+        # get the closest number in decile_label to car_size
+        closest_number = min(df['decile_label'], key=lambda x: abs(x - self.car_size))
+        # get first index where condition is met
+        index = df.loc[df['decile_label'] == closest_number].index[0]
+        # find the car id
+        random_car_id = df.loc[index, 'car_id']
+        # add the car id to already picked ids
+        ElectricVehicle.picked_mobility_data += [random_car_id]
         self.car_id = random_car_id
 
         # TEST True = Set local directory for mobility data
         # Load correct mobility file
         file_path = helper.create_file_path(random_car_id, test=False)
 
-        raw_mobility_data = pd.read_csv(file_path)
+        # read only used columns to speed up data reading
+        raw_mobility_data = pd.read_csv(file_path, usecols=['TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTIONKWH', 'ID_PANELSESSION', 'ID_TERMINAL'])
         data_aggregator = MobilityDataAggregator(raw_mobility_data=raw_mobility_data,
                                                  start_date=self.start_date,
                                                  end_date=self.end_date)
@@ -118,7 +130,7 @@ class ElectricVehicle(mesa.Agent):
         return self.car_id
 
     def set_plug_in_status(self):
-        #TODO Replace self.get_mobility_data() with df and input is df
+        #TODO Replace self.get_mobility_data() with df
         panel_session = self.get_mobility_data().loc[self.current_timestamp, 'ID_PANELSESSION']
         current_index = self.get_mobility_data().index.get_loc(self.current_timestamp)
 
@@ -170,7 +182,8 @@ class ElectricVehicle(mesa.Agent):
 
             self.charging_value = 0
         else:  # charging
-            # TODO charging power home should be charging_power -> min(charging_power_home, charging_power_station)
+            # TODO charging power home should be charging_power ->
+            #  min(charging_power_home, charging_power_station)
             potential_battery_level = self.battery_level + self.charging_power_home
             if potential_battery_level >= self.battery_capacity:
                 over_charged_value = potential_battery_level - self.battery_capacity
@@ -209,16 +222,6 @@ class ElectricVehicle(mesa.Agent):
 
         self.set_plug_in_status()
         self.calculate_battery_level()
-        # print("")
-        # print("my car id is: ", self.car_id)
-        # print("my car model is: ", self.model)
-        # print("current timestamp: ", self.current_timestamp)
-        # print("my battery capacity: ", self.battery_capacity)
-        # print("my battery lvl: ", self.battery_level)
-        # print("my consumption: ", self.consumption)
-        # print("my charging value: ", self.charging_value)
-        # print("my soc is: ", self.soc)
-        # print("")
 
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
@@ -231,3 +234,6 @@ class ElectricVehicle(mesa.Agent):
 # TODO implement charging only between 18:00 and 06:00
 # TODO implement charging in flat manner, means calculate the time the car stands
 # TODO divide the charging power by the time the car has to charge
+
+if __name__ == "__main__":
+    agent = ElectricVehicle(1, "bmw_i3", 1.0, '2008-07-13', '2008-07-27')

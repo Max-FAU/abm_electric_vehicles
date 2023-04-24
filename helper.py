@@ -19,11 +19,18 @@ def set_print_options():
     pd.set_option('display.expand_frame_repr', False)
 
 
-def create_file_path(car_id, test=False) -> str:
-    # create the file path to read the mobility data for the car model
+def get_directory_path(test=False) -> str:
     directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
     if test:
         directory_path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"
+    return directory_path
+
+
+def create_file_path(car_id, test=False) -> str:
+    # create the file path to read the mobility data for the car model
+    directory_path = get_directory_path(test=test)
+    if test:
+        directory_path = get_directory_path(test=test)
         car_id = 80
     file_name = '\quarterly_simulation_' + str(car_id) + '.csv'
     file_name = directory_path + file_name
