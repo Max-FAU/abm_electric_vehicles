@@ -11,7 +11,8 @@ class ElectricVehicle(mesa.Agent):
     # list of all picked mobility data to assign them only once
     picked_mobility_data = []
 
-    def __init__(self, unique_id: int,
+    def __init__(self,
+                 unique_id: int,
                  car_model: str,
                  target_soc: float,
                  start_date: str,

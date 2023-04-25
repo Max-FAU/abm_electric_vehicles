@@ -24,7 +24,6 @@ class ChargingModel(mesa.Model):
         self.list_models = self.generate_cars_according_to_dist()
 
         i = 0
-
         while i < len(self.list_models):
             car_model = self.list_models[i]
             try:

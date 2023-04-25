@@ -1,5 +1,5 @@
 venv/
-/failed_processed_dataframes/
+/results/
 test_data/consumption.csv
 test_data/labelled_cars.csv
 test_data/mobility_data_trip1_test.csv
