@@ -161,7 +161,7 @@ class StartModel(Model):
 
         self.datacollector = DataCollector(
             model_reporters={"total_charging_power": lambda m: sum(a.charging_value for a in m.schedule.agents if isinstance(a, ElectricVehicle)),
-                             "test_transformer_capacity": lambda t: sum(trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)) / len([trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)])}
+                             "test_transformer_capacity": lambda t: sum(trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)) / len([trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)])}  # calculate the average here
         )
 
         for i in range(self.num_transformers):
@@ -217,7 +217,17 @@ class StartModel(Model):
         self.schedule.step()
         self.datacollector.collect(self)
         test = self.datacollector.get_model_vars_dataframe()
-        # total_charging_value = test.loc[self.schedule.steps - 1, 'total_charging_power']
+        total_charging_value = test.loc[self.schedule.steps - 1, 'total_charging_power']
+        transformer_capacity = test.loc[self.schedule.steps - 1, 'test_transformer_capacity']
+
+        # if total_charging_value > transformer_capacity:
+        #     for a in self.schedule.agents:
+        #         if isinstance(a, ElectricVehicle):
+        #             a.charging_value = 0
+
+        # TODO MAYBE IMPLEMENT A FUNCTION IN AGENT STEP TO RETRIEVE
+        # TODO THE NEW CHARGING VALUE CALCULATED HERE
+
         if self.schedule.steps == 95:
             test.plot()
             plt.show()
@@ -228,7 +238,7 @@ if __name__ == '__main__':
     start_date = '2008-07-13'
     end_date = '2008-07-14'
 
-    model = StartModel(num_agents=1,
+    model = StartModel(num_agents=6,
                        num_households_per_transformer=24,
                        start_date=start_date,
                        end_date=end_date)
