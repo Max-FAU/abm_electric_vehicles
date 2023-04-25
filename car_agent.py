@@ -49,7 +49,7 @@ class ElectricVehicle(mesa.Agent):
         self.range_anxiety = None
 
         self.plugged_in = None
-        self.current_charging = None
+        # self.current_charging = None
 
         # run this always when creating a car agent
         self.initialize_car_values()
@@ -114,7 +114,7 @@ class ElectricVehicle(mesa.Agent):
 
         # TEST True = Set local directory for mobility data
         # Load correct mobility file
-        file_path = helper.create_file_path(random_car_id, test=False)
+        file_path = helper.create_file_path(random_car_id, test=True)
 
         # read only used columns to speed up data reading
         raw_mobility_data = pd.read_csv(file_path, usecols=['TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTIONKWH', 'ID_PANELSESSION', 'ID_TERMINAL'])
@@ -224,7 +224,7 @@ class ElectricVehicle(mesa.Agent):
 
         self.set_plug_in_status()
         self.calculate_battery_level()
-
+        print("Agent with Car ID {}: current charging_value is: {}".format(self.car_id, self.charging_value))
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
 #     def __init__(self, model, **params):
@@ -232,7 +232,6 @@ class ElectricVehicle(mesa.Agent):
 #         self.max_power = 3.7
 #         self.min_power = 1.22
 
-# TODO implement power_grid_class
 # TODO implement charging only between 18:00 and 06:00
 # TODO implement charging in flat manner, means calculate the time the car stands
 # TODO divide the charging power by the time the car has to charge

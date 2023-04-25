@@ -20,8 +20,8 @@ def set_print_options():
 
 
 def get_directory_path(test=False) -> str:
-    # directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
-    directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
+    directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
+    # directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
 
     if test:
         directory_path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"

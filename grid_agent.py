@@ -1,21 +1,13 @@
 import datetime
 import math
-import mesa
 from mesa import Agent, Model
-from mesa.time import RandomActivation
+from mesa.time import RandomActivation, BaseScheduler, RandomActivationByType
 import pandas as pd
 import matplotlib.pyplot as plt
-
-import grid_agent
-
-
-class TestEV(Agent):
-    def __int__(self, model, unique_id, charging_power):
-        super().__init__(model, unique_id)
-        self.charging_power = charging_power
-
-    def step(self):
-        pass
+from car_agent import ElectricVehicle
+import numpy as np
+import json
+from mesa.datacollection import DataCollector
 
 
 class ElectricityGridBus(Agent):
@@ -26,14 +18,16 @@ class ElectricityGridBus(Agent):
                  yearly_cons_household,
                  start_date: str,
                  end_date: str):
+
         super().__init__(unique_id, model)
         # self.unique_id = unique_id
-        self.start_date = start_date
-        self.end_date = end_date
-        self.num_households = num_households
+        self.start_date = pd.to_datetime(start_date)
+        self.end_date = pd.to_datetime(end_date)
+        self.num_households = num_households    # num_households == num EV Agents
+        # TODO MAYBE REFACTOR EVERYTHING HERE IN ONE FUNCTION SINCE VALUES NOT CHANGING
         self.volt_house_hold = 230
         self.ampere_house_hold = 40
-        self.phases = 3
+        self.phases = 3   # maybe 1
         self.power_house_hold = self.volt_house_hold * self.ampere_house_hold * self.phases
 
         self.customers_contracted_power = []
@@ -43,16 +37,24 @@ class ElectricityGridBus(Agent):
         self.p_over = 10
         self.transformer_capacity = self.calc_transformer_power_capacity()
 
+        self.transformer_capacity_test = 25  # kw
+
         self.yearly_cons_household = yearly_cons_household
         self.scale = self.yearly_cons_household / 1000
-        self.standard_load_profile = self.one_customer_base_load()
-        self.scaled_load_profile = self.scale_one_customer_base_load()
+        self.standard_load_profile = self.one_customer_base_load()  # 1000 kwh yearly
+        # print(sum(self.standard_load_profile['value']) / 4 / 1000)
+        self.scaled_load_profile = self.scale_one_customer_base_load()  # * 3.5
 
-        self.total_base_load = self.set_total_base_load()
-        #TODO start_date and end_date, create a dataframe with 15 min steps,
+        self.total_base_load = self.set_total_base_load()  # * 24
 
-        self.current_load = None   # from base load
+        self.current_load = None  # from base load in W
+        self.current_load_kw = None  # in kW
         self.current_timestamp = None
+
+        self.current_charging_power_total = 0
+
+    def get_test_transformer_capacity(self):
+        return self.transformer_capacity_test
 
     def set_timestamp(self, timestamp):
         self.current_timestamp = timestamp
@@ -60,6 +62,9 @@ class ElectricityGridBus(Agent):
     def set_current_load(self):
         """Base load for the corresponding timestamp."""
         self.current_load = self.total_base_load.loc[self.current_timestamp, 'value']
+
+    def set_current_load_kw(self):
+        self.current_load_kw = round(self.current_load / 1000, 1)
 
     def get_customers_contracted_power(self):
         for i in range(self.num_households):
@@ -87,7 +92,8 @@ class ElectricityGridBus(Agent):
 
     def one_customer_base_load(self):
         # file = "h0_profile.csv"
-        df = pd.read_csv(r"W:\abm_electric_vehicles\h0_profile.csv")
+        df = pd.read_csv("h0_profile.csv")
+        # df = pd.read_csv(r"W:\abm_electric_vehicles\h0_profile.csv")
         df = df.drop(columns=['TagNr.', 'Tag'])
 
         # stack the rows and set the column name as index
@@ -98,11 +104,11 @@ class ElectricityGridBus(Agent):
         # drop the original date and time columns
         df_stacked.drop(['Datum', 'time'], axis=1, inplace=True)
         # replace the year in h0 profile timestamps to current year
-        relevant_year = pd.Timestamp(self.start_date).year
+        relevant_year = self.start_date.year
+        # print(relevant_year)
         df_stacked['datetime'] = df_stacked['datetime'].apply(lambda x: x.replace(year=relevant_year))
         # set the datetime column as index
         df_stacked.set_index('datetime', inplace=True)
-
         return df_stacked
 
     def scale_one_customer_base_load(self):
@@ -120,6 +126,11 @@ class ElectricityGridBus(Agent):
             # each step add 15 minutes
             self.current_timestamp = self.current_timestamp + datetime.timedelta(minutes=15)
 
+        self.set_current_load()
+        self.set_current_load_kw()
+
+        print("Transformer with a capacity of {} kW".format(self.transformer_capacity_test))
+
     # def unnessesary(self):
     #     charging_dict = {
     #         'low': 3.7,
@@ -129,59 +140,110 @@ class ElectricityGridBus(Agent):
 
 
 class StartModel(Model):
-    def __init__(self, num_agents: int, num_households: int):
-        self.num_agents = 1
-        self.num_households = num_households
-        self.num_agents = num_agents
-        self.num_transformers = num_agents // num_households + 1
-        self.max_transformer_capacity = 25  # kW
+    def __init__(self, num_agents: int,
+                 num_households_per_transformer: int,
+                 start_date: str,
+                 end_date: str):
 
-        self.power_reduction = None
+        self.start_date = start_date
+        self.end_date = end_date
+        self.num_households_per_transformer = num_households_per_transformer
 
+        self.num_agents = num_agents   # agents are number of EV Agents
+        self.num_transformers = num_agents // num_households_per_transformer + 1
+
+        print("We generate {} cars.".format(self.num_agents))
+        print("We have {} transformers for them.".format(self.num_transformers))
+
+        # self.power_reduction = None
+        # self.schedule = RandomActivationByType(self)
         self.schedule = RandomActivation(self)
+
+        self.datacollector = DataCollector(
+            model_reporters={"total_charging_power": lambda m: sum(a.charging_value for a in m.schedule.agents if isinstance(a, ElectricVehicle)),
+                             "test_transformer_capacity": lambda t: sum(trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)) / len([trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)])}
+        )
 
         for i in range(self.num_transformers):
             transformer = ElectricityGridBus(model=self,
                                              unique_id=i,
-                                             num_households=num_households,
-                                             yearly_cons_household=3500)
+                                             num_households=num_households_per_transformer,
+                                             yearly_cons_household=3500,
+                                             start_date=self.start_date,
+                                             end_date=self.end_date)
             self.schedule.add(transformer)
 
-        car_model = ['renault_zoe']
-        for j in range(self.num_agents):
-            agent = TestEV(unique_id=i,
-                            car_model=car_model,
-                            target_soc=1.0,
-                            start_date=self.start_date,
-                            end_date=self.end_date,
-                            model=self)
-            self.schedule.add(agent)
+        self.list_models = self.generate_cars_according_to_dist()
+
+        # use k because i already taken
+        k = 0
+        while k < len(self.list_models):
+            car_model = self.list_models[k]
+            try:
+                agent = ElectricVehicle(unique_id=k + 1000,   # add 1000 to have unique ids
+                                        car_model=car_model,
+                                        target_soc=1.0,
+                                        start_date=self.start_date,
+                                        end_date=self.end_date,
+                                        model=self)
+                self.schedule.add(agent)
+            except Exception as e:
+                print("Adding agent to model failed.")
+
+            print("Added agent number {} to the model.".format(k))
+            k += 1
+
+    def generate_cars_according_to_dist(self):
+        with open('car_values.json', 'r') as f:
+            data = json.load(f)
+
+        total_cars = 0
+        for name in data.keys():
+            total_cars += data[name]["number"]
+
+        cars = []
+        distribution = []
+        for name in data.keys():
+            cars += [name]
+            distribution += [data[name]["number"] / total_cars]
+
+        car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
+        # print(len(car_names), "car names generated.")
+
+        return car_models
 
     def step(self):
+        # step through schedule
         self.schedule.step()
+        self.datacollector.collect(self)
+        test = self.datacollector.get_model_vars_dataframe()
+        # total_charging_value = test.loc[self.schedule.steps - 1, 'total_charging_power']
+        if self.schedule.steps == 95:
+            test.plot()
+            plt.show()
 
 
 if __name__ == '__main__':
 
-    model = StartModel(num_agents=1, num_households=24)
+    start_date = '2008-07-13'
+    end_date = '2008-07-14'
 
-    for j in range(1):
+    model = StartModel(num_agents=1,
+                       num_households_per_transformer=24,
+                       start_date=start_date,
+                       end_date=end_date)
+
+    for j in range(96):
         model.step()
+
+
+
 
     # # We could take one of these transformers, e.g. ABB DRY-TYPE TRANSFORMER 25 kVA 480-120/240V
     # # https://electrification.us.abb.com/products/transformers-low-voltage-dry-type
     # # take siemens https://mall.industry.siemens.com/mall/de/WW/Catalog/Products/10283675
     # # size depends on the phases we want
     # # usually we have as output 400 V
-    # num_households = 24
-    # transformer = ElectricityGridBus(1, num_households, 3500)
-    # print(transformer.transformer_capacity)
-    # # print(transformer.customers_contracted_power)
-    # df_stacked = transformer.total_base_load / 1000
-    # # print(transformer.scaled_load_profile)
-    # # print(sum(transformer.standard_load_profile['value']) / 1000 / 4) # kwh
-    #
-    # sum = sum(transformer.total_base_load['value']) / 4 / 1000
     #
     # print(sum)
     # df_stacked.plot()
