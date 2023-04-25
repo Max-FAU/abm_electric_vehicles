@@ -25,6 +25,7 @@ class ElectricVehicle(mesa.Agent):
         # insert the super class
         super().__init__(unique_id, model)
 
+        self.sorted_models = None
         self.charging_value = None
         self.charging_power_word = None
         self.charging_power_home = None
@@ -74,8 +75,8 @@ class ElectricVehicle(mesa.Agent):
         self.charging_power_word = car_dict[self.car_model]["charging_power_work"]
 
         if self.car_size is None:
-            sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
-            self.car_size = sorted_models.index(self.car_model)
+            self.sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
+            self.car_size = self.sorted_models.index(self.car_model)
 
     def load_mobility_data(self):
         # this file generated with one time run in match_cars_mobility.py
@@ -86,7 +87,7 @@ class ElectricVehicle(mesa.Agent):
             print("Mobility mapping file needs to be generated once.\n"
                   "This might take a while.")
             directory_path = helper.get_directory_path()
-            no_clusters = len(mcm.sort_cars_size())
+            no_clusters = len(self.sorted_models)
             mcm.create_median_trip_length_file(directory_path=directory_path,
                                                start_date=self.start_date,
                                                end_date=self.end_date,

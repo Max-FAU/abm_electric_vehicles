@@ -7,6 +7,6 @@
   "CLUSTER",
   "ECONSUMPTIONKWH",
   "DELTAPOS"],
-  "folder": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data",
+  "directory_path": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data",
   "file": "C:\\Users\\Max\\Desktop\\Master Thesis\\Data\\MobilityProfiles_EV_Data\\quarterly_simulation_80.csv"
 }

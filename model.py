@@ -9,7 +9,7 @@ class ChargingModel(mesa.Model):
     def __init__(self, num_agents: int, start_date: str, end_date: str):
         """
         Simulation for charging agents
-        :param num_agents: 1 upto 700
+        :param num_agents: 1 up to 698
         :param start_date: min date
         :param end_date: max date
         """
@@ -19,9 +19,8 @@ class ChargingModel(mesa.Model):
 
         # TODO check if SimultaneousActivation is better
         self.schedule = mesa.time.RandomActivation(self)
-        assert num_agents <= 700, "Only 700 agents are possible"
+        assert num_agents <= 698, "Only 698 agents are possible"
         self.num_agents = num_agents
-        self.list_agents = []
         self.list_models = self.generate_cars_according_to_dist()
 
         i = 0
