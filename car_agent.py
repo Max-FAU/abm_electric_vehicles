@@ -22,7 +22,7 @@ class ElectricVehicle(mesa.Agent):
         :param car_model: 'bmw_i3' | 'renault_zoe' | 'tesla_model_3' | 'vw_up' | 'vw_id3' | 'smart_fortwo' | 'hyundai_kona' | 'fiat_500' | 'vw_golf' | 'vw_id4_id5'
         :param target_soc: 0.00 - 1.00, charging happens until target SOC has been reached
         """
-        # TODO sort them differently
+        # TODO sort them differently and maybe reduce them drastically
         # insert the super class
         super().__init__(unique_id, model)
 
@@ -160,7 +160,7 @@ class ElectricVehicle(mesa.Agent):
             return True
 
     # TODO Implement charging efficiency
-    def calculate_battery_level(self, charging_efficiency=0.95):
+    def calculate_battery_level(self, charging_efficiency=0.95, reduced=False):
 
         if self.battery_level is None:
             self.battery_level = self.battery_capacity
@@ -189,14 +189,21 @@ class ElectricVehicle(mesa.Agent):
             potential_battery_level = self.battery_level + self.charging_power_home
             if potential_battery_level >= self.battery_capacity:
                 over_charged_value = potential_battery_level - self.battery_capacity
-                self.charging_value = max(0, self.charging_power_home - over_charged_value)
-                self.battery_level += self.charging_value
-                # self.load_curve.append(new_charging_value)
+                if not reduced:
+                    self.charging_value = max(0, self.charging_power_home - over_charged_value)
+                    self.battery_level += self.charging_value
+                    # self.load_curve.append(new_charging_value)
+                else:
+                    # if reduction happened just take the self.charging_value from class
+                    self.battery_level += self.charging_value
             else:
-                # check for target soc and reduce charging power according to it
-                self.charging_value = self.target_soc * self.battery_capacity - self.battery_level
-                self.charging_value = max(self.charging_value, self.charging_power_home)
-                self.battery_level += self.charging_value
+                if not reduced:
+                    # check for target soc and reduce charging power according to it
+                    self.charging_value = self.target_soc * self.battery_capacity - self.battery_level
+                    self.charging_value = max(self.charging_value, self.charging_power_home)
+                    self.battery_level += self.charging_value
+                else:   # just take self.charging_value if already reduced
+                    self.battery_level += self.charging_value
 
     def calc_soc(self):
         # Calculate the state of charge (SoC)
@@ -214,6 +221,25 @@ class ElectricVehicle(mesa.Agent):
 
         self.range_anxiety = consumption_next_trip * self.anxiety_factor
 
+    def get_current_charging_value(self):
+        return self.charging_value
+
+    def update_charging_value(self):
+        all_agents = self.model.schedule.agents    # get all agents of the model
+        car_agents = [agent for agent in all_agents if isinstance(agent, ElectricVehicle)]    # filter all agents by electricvehicles
+        car_agents_charging_values = [agent.charging_value for agent in car_agents]       # get all charging values of all agents
+        car_agents_charging_values_total = sum([x for x in car_agents_charging_values if x is not None])     # calculate the total charging values of all agents in the model
+        # TODO max_capacity retrieved by a different agent
+        max_capacity = 25
+        num_charging_cars = len([value for value in car_agents_charging_values if value is not None and value != 0])  # filter what agents are charging at that timestamp
+
+        if car_agents_charging_values_total > max_capacity:  # check if the total_charging_power is above the max_capacity
+            exceeding_charging_value = car_agents_charging_values_total - max_capacity    # calc the exceeding energy
+            reduction_per_agent = round(exceeding_charging_value / num_charging_cars, 1)   # calc the reduction per charging agent and round the result
+
+            for agent in car_agents:    # update in all car agents the charging value
+                agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
+
     def step(self):
         if self.current_timestamp is None:
             self.current_timestamp = self.start_date
@@ -224,7 +250,14 @@ class ElectricVehicle(mesa.Agent):
 
         self.set_plug_in_status()
         self.calculate_battery_level()
-        print("Agent with Car ID {}: current charging_value is: {}".format(self.car_id, self.charging_value))
+
+        # update charging value
+        self.update_charging_value()
+        self.calculate_battery_level(reduced=True)
+
+        # self.calculate_battery_level(reduced=True)
+
+
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
 #     def __init__(self, model, **params):

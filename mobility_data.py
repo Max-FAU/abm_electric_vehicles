@@ -60,8 +60,9 @@ class MobilityDataAggregator:
         except ValueError:
             print("Timestamp index error - it is in wrong format.")
 
-        if self.df_processed.shape[0] % 96 != 0:
-            raise Exception('Number of rows must be divisible by 96.')
+        # TODO Maybe later if this is really needed
+        # if self.df_processed.shape[0] % 96 != 0:
+        #     raise Exception('Number of rows must be divisible by 96.')
 
     def prepare_mobility_data(self):
         self._create_df_limited_time()

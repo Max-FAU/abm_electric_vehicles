@@ -1,7 +1,7 @@
 import datetime
 import math
 from mesa import Agent, Model
-from mesa.time import RandomActivation, BaseScheduler, RandomActivationByType
+from mesa.time import RandomActivation, BaseScheduler, RandomActivationByType, SimultaneousActivation
 import pandas as pd
 import matplotlib.pyplot as plt
 from car_agent import ElectricVehicle
@@ -23,11 +23,11 @@ class ElectricityGridBus(Agent):
         # self.unique_id = unique_id
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
-        self.num_households = num_households    # num_households == num EV Agents
+        self.num_households = num_households  # num_households == num EV Agents
         # TODO MAYBE REFACTOR EVERYTHING HERE IN ONE FUNCTION SINCE VALUES NOT CHANGING
         self.volt_house_hold = 230
         self.ampere_house_hold = 40
-        self.phases = 3   # maybe 1
+        self.phases = 3  # maybe 1
         self.power_house_hold = self.volt_house_hold * self.ampere_house_hold * self.phases
 
         self.customers_contracted_power = []
@@ -129,7 +129,7 @@ class ElectricityGridBus(Agent):
         self.set_current_load()
         self.set_current_load_kw()
 
-        print("Transformer with a capacity of {} kW".format(self.transformer_capacity_test))
+        # print("Transformer with a capacity of {} kW".format(self.transformer_capacity_test))
 
     # def unnessesary(self):
     #     charging_dict = {
@@ -149,7 +149,7 @@ class StartModel(Model):
         self.end_date = end_date
         self.num_households_per_transformer = num_households_per_transformer
 
-        self.num_agents = num_agents   # agents are number of EV Agents
+        self.num_agents = num_agents  # agents are number of EV Agents
         self.num_transformers = num_agents // num_households_per_transformer + 1
 
         print("We generate {} cars.".format(self.num_agents))
@@ -157,11 +157,18 @@ class StartModel(Model):
 
         # self.power_reduction = None
         # self.schedule = RandomActivationByType(self)
-        self.schedule = RandomActivation(self)
+        self.schedule = SimultaneousActivation(self)
 
         self.datacollector = DataCollector(
-            model_reporters={"total_charging_power": lambda m: sum(a.charging_value for a in m.schedule.agents if isinstance(a, ElectricVehicle)),
-                             "test_transformer_capacity": lambda t: sum(trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)) / len([trans.transformer_capacity_test for trans in t.schedule.agents if isinstance(trans, ElectricityGridBus)])}  # calculate the average here
+            model_reporters={"total_charging_power": lambda m: sum(
+                a.charging_value for a in m.schedule.agents if isinstance(a, ElectricVehicle)),
+                             "test_transformer_capacity": lambda t: sum(trans.transformer_capacity_test for trans in
+                                                                        t.schedule.agents if
+                                                                        isinstance(trans, ElectricityGridBus)) /
+                                                                    len([trans.transformer_capacity_test for trans in
+                                                                         t.schedule.agents if
+                                                                         isinstance(trans, ElectricityGridBus)])}
+            # calculate the average here
         )
 
         for i in range(self.num_transformers):
@@ -173,14 +180,16 @@ class StartModel(Model):
                                              end_date=self.end_date)
             self.schedule.add(transformer)
 
+        self.maximum_transformer_capacity = transformer.transformer_capacity_test
+
         self.list_models = self.generate_cars_according_to_dist()
 
-        # use k because i already taken
+        # use k because i has already been taken
         k = 0
         while k < len(self.list_models):
             car_model = self.list_models[k]
             try:
-                agent = ElectricVehicle(unique_id=k + 1000,   # add 1000 to have unique ids
+                agent = ElectricVehicle(unique_id=k + 1000,  # add 1000 to have unique ids
                                         car_model=car_model,
                                         target_soc=1.0,
                                         start_date=self.start_date,
@@ -212,13 +221,48 @@ class StartModel(Model):
 
         return car_models
 
+    # def calc_new_charging_per_car(self, agent):
+    #     current_charging_value = agent.get_current_charging_value()
+
+
+
     def step(self):
+        # if self.schedule.steps > 0:
+        #     self.datacollector.collect(self)
+
         # step through schedule
         self.schedule.step()
         self.datacollector.collect(self)
-        test = self.datacollector.get_model_vars_dataframe()
-        total_charging_value = test.loc[self.schedule.steps - 1, 'total_charging_power']
-        transformer_capacity = test.loc[self.schedule.steps - 1, 'test_transformer_capacity']
+
+        charging_data = self.datacollector.get_model_vars_dataframe()
+        # total_charging_value = charging_data.loc[self.schedule.steps - 1, 'total_charging_power']
+
+
+
+
+
+        # print(charging_data)
+        # total_charging_value = charging_data.loc[self.schedule.steps, 'total_charging_power']
+        #
+        # charging_agents = []
+        # for agent in self.schedule.agents:
+        #     if agent.charging_value > 0:
+        #         charging_agents.append(agent)
+        #
+        # max_capacity = 25
+        #
+        # while total_charging_value > max_capacity:
+        #     exceeding_charging_value = total_charging_value - max_capacity
+        #     reduction_per_agent = exceeding_charging_value / len(charging_agents)
+        #     for agent in charging_agents:
+        #         agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
+        #     charging_agents = [agent for agent in self.schedule.agents if agent.charging_value > 0]
+        #     total_charging_value = sum(agent.charging_value for agent in charging_agents)
+
+
+
+        # total_charging_value = test.loc[self.schedule.steps - 1, 'total_charging_power']
+        # transformer_capacity = test.loc[self.schedule.steps - 1, 'test_transformer_capacity']
 
         # if total_charging_value > transformer_capacity:
         #     for a in self.schedule.agents:
@@ -228,26 +272,27 @@ class StartModel(Model):
         # TODO MAYBE IMPLEMENT A FUNCTION IN AGENT STEP TO RETRIEVE
         # TODO THE NEW CHARGING VALUE CALCULATED HERE
 
-        if self.schedule.steps == 95:
+        if self.schedule.steps == 96:
+            test = self.datacollector.get_model_vars_dataframe()
             test.plot()
             plt.show()
 
 
 if __name__ == '__main__':
 
-    start_date = '2008-07-13'
-    end_date = '2008-07-14'
+    start_date = '2008-07-13 14:15:00'
+    end_date = '2008-07-14 15:30:00'
+
+    time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
+    num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
     model = StartModel(num_agents=6,
                        num_households_per_transformer=24,
                        start_date=start_date,
                        end_date=end_date)
 
-    for j in range(96):
+    for j in range(num_intervals):
         model.step()
-
-
-
 
     # # We could take one of these transformers, e.g. ABB DRY-TYPE TRANSFORMER 25 kVA 480-120/240V
     # # https://electrification.us.abb.com/products/transformers-low-voltage-dry-type

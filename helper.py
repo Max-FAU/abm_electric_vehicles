@@ -19,12 +19,14 @@ def set_print_options():
     pd.set_option('display.expand_frame_repr', False)
 
 
+#TODO Set the directory Path as variable on top of file DIRECTORY_PATH = r"J:\Max_Mobility_Profiles\quarterly_simulation"
 def get_directory_path(test=False) -> str:
-    directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
-    # directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
+    # directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
+    directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
 
     if test:
-        directory_path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"
+        # directory_path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"
+        directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
     return directory_path
 
 
