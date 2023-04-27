@@ -1,6 +1,6 @@
 import json
 import pandas as pd
-import helper
+import auxiliary as aux
 import datetime
 from mobility_data import MobilityDataAggregator
 import mesa
@@ -59,6 +59,8 @@ class ElectricVehicle(mesa.Agent):
         self.end_date = end_date
         self.load_mobility_data()
 
+        self.reduction = 0
+
         self.current_timestamp = None
 
     def set_timestamp(self, timestamp):
@@ -72,8 +74,8 @@ class ElectricVehicle(mesa.Agent):
         # retrieve and set car values
         self.battery_capacity = car_dict[self.car_model]["battery_capacity"]
         self.number_of_car = car_dict[self.car_model]["number"]
-        self.charging_power_home = car_dict[self.car_model]["charging_power_home"]
-        self.charging_power_word = car_dict[self.car_model]["charging_power_work"]
+        self.charging_power_home = car_dict[self.car_model]["charging_power_ac"]
+        self.charging_power_word = car_dict[self.car_model]["charging_power_dc"]
 
         if self.car_size is None:
             self.sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
@@ -87,7 +89,7 @@ class ElectricVehicle(mesa.Agent):
         except:
             print("Mobility mapping file needs to be generated once.\n"
                   "This might take a while.")
-            directory_path = helper.get_directory_path()
+            directory_path = aux.get_directory_path()
             no_clusters = len(self.sorted_models)
             mcm.create_median_trip_length_file(directory_path=directory_path,
                                                start_date=self.start_date,
@@ -104,17 +106,23 @@ class ElectricVehicle(mesa.Agent):
             df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
         # get the closest number in decile_label to car_size
         closest_number = min(df['decile_label'], key=lambda x: abs(x - self.car_size))
-        # get first index where condition is met
-        index = df.loc[df['decile_label'] == closest_number].index[0]
+
+        # Get a list of indexes where decile_label is equal to closest_number
+        matching_indexes = df.index[df['decile_label'] == closest_number].tolist()
+        import random
+        # Get a random index from the matching indexes
+        random_index = random.choice(matching_indexes)
+        # # get first index where condition is met
+        # matching_indecis = df.loc[df['decile_label'] == closest_number].index[0]
         # find the car id
-        random_car_id = df.loc[index, 'car_id']
+        random_car_id = df.loc[random_index, 'car_id']
         # add the car id to already picked ids
         ElectricVehicle.picked_mobility_data += [random_car_id]
         self.car_id = random_car_id
 
         # TEST True = Set local directory for mobility data
         # Load correct mobility file
-        file_path = helper.create_file_path(random_car_id, test=True)
+        file_path = aux.create_file_path(random_car_id, test=True)
 
         # read only used columns to speed up data reading
         raw_mobility_data = pd.read_csv(file_path, usecols=['TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTIONKWH', 'ID_PANELSESSION', 'ID_TERMINAL'])
@@ -173,6 +181,9 @@ class ElectricVehicle(mesa.Agent):
                                           self.target_soc,
                                           self.plugged_in,
                                           self.consumption)
+
+        if charging is None:
+            charging = True
 
         if not charging:
             potential_battery_level = self.battery_level - self.consumption
@@ -238,7 +249,12 @@ class ElectricVehicle(mesa.Agent):
             reduction_per_agent = round(exceeding_charging_value / num_charging_cars, 1)   # calc the reduction per charging agent and round the result
 
             for agent in car_agents:    # update in all car agents the charging value
-                agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
+                if agent.charging_value is not None and agent.charging_value != 0:
+                    agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
+                    agent.reduction = reduction_per_agent
+
+    def check_reduction(self):
+        return self.reduction
 
     def step(self):
         if self.current_timestamp is None:
@@ -249,11 +265,16 @@ class ElectricVehicle(mesa.Agent):
             self.current_timestamp = self.current_timestamp + datetime.timedelta(minutes=15)
 
         self.set_plug_in_status()
+        # TODO FUNCTION TO CALC CCHARGING VALUE FIRRST
+        # self.charging_value += self.reduction
+        self.reduction = 0
+        # calculate battery lvl
         self.calculate_battery_level()
 
-        # update charging value
+        # # update charging value
         self.update_charging_value()
-        self.calculate_battery_level(reduced=True)
+        # # self.update_other_values()
+        # self.calculate_battery_level(reduced=True)
 
         # self.calculate_battery_level(reduced=True)
 

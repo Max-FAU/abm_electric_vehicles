@@ -1,24 +1,48 @@
 import json
 import glob
-from mobility_data import MobilityDataAggregator
 import pandas as pd
 from tqdm import tqdm
+from mobility_data import MobilityDataAggregator
+
+DIRECTORY_PATH = r"D:\Max_Mobility_Profiles\quarterly_simulation"
+DIRECTORY_PATH_TEST = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"
 
 
-def sort_cars_size():
-    # Load the car models
-    with open('car_values.json') as f:
-        car_dict = json.load(f)
-    # sort the model according to their battery capacity to later match them
-    # the index represents the rank where 0 is small and 9 is large
-    sorted_models = sorted(car_dict, key=lambda x: car_dict[x]['battery_capacity'])
-
-    return sorted_models
+def read_json_config(keyword):
+    with open('relevant_columns_config.json', 'r') as config:
+        columns = json.load(config)
+    return columns[keyword]
 
 
-def median_trip_length(df, car_id):
-    # Create a dict holding the median trip length for a car id, this dict will be appended to
-    # a large dict holding all car_ids later
+def set_print_options():
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.expand_frame_repr', False)
+
+
+#TODO Set the directory Path as variable on top of file DIRECTORY_PATH = r"J:\Max_Mobility_Profiles\quarterly_simulation"
+def get_directory_path(test=False) -> str:
+    directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
+    # directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
+    if test:
+        directory_path = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"
+        # directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
+    return directory_path
+
+
+def create_file_path(car_id, test=False) -> str:
+    # create the file path to read the mobility data for the car model
+    directory_path = get_directory_path(test=test)
+    if test:
+        directory_path = get_directory_path(test=test)
+        car_id = 80
+    file_name = '\quarterly_simulation_' + str(car_id) + '.csv'
+    file_name = directory_path + file_name
+    return file_name
+
+
+def median_trip_length(df, car_id) -> dict:
+    # Create a dict with key 'car_id' and value 'med_trip_len'
     len_dict = {}
     trip_df = df.groupby('TRIPNUMBER').sum()
     med_trip_len = trip_df['DELTAPOS'].median()
@@ -27,6 +51,7 @@ def median_trip_length(df, car_id):
     return len_dict
 
 def is_private_car(unique_id: int):
+    """Load the json which indicates if the car is a private car."""
     with open('private_cars.json') as f:
         private_cars = json.load(f)
 
@@ -38,6 +63,7 @@ def is_private_car(unique_id: int):
         return True
     else:
         return False
+
 
 def label_mobility_data(df, no_deciles: int):
     # drop entries in dataframe without any trip length
@@ -88,15 +114,14 @@ def create_median_trip_length_file(directory_path,
     sorted_dict_df.to_csv(file_name)
 
 
+
+
+
 if __name__ == '__main__':
+
     directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
     # start_date = self.start_date
     # end_date = self.end_date
     start_date = '2008-07-13'
     end_date = '2008-07-14'
-    # create a list with car types sorted to their battery capacity
-    sorted_models = sort_cars_size()
-    # count the length of the list to figure out how many clusters needed
-    no_clusters: int = len(sorted_models)
-    #
-    create_median_trip_length_file(directory_path, start_date, end_date, no_deciles=no_clusters, file_name='test.csv')
+    create_median_trip_length_file(directory_path, start_date, end_date, no_deciles=10, file_name='test.csv')

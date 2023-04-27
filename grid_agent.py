@@ -8,24 +8,26 @@ from car_agent import ElectricVehicle
 import numpy as np
 import json
 from mesa.datacollection import DataCollector
+from own_scheduler import DualStepScheduler
 
 
-class ElectricityGridBus(Agent):
+# class ElectricityGridBus(Agent):
+class ElectricityGridBus:
     def __init__(self,
-                 model,
+                 # model,
                  unique_id,
                  num_households,
                  yearly_cons_household,
                  start_date: str,
                  end_date: str):
 
-        super().__init__(unique_id, model)
-        # self.unique_id = unique_id
+        # super().__init__(unique_id, model)
+        self.unique_id = unique_id
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
         self.num_households = num_households  # num_households == num EV Agents
         # TODO MAYBE REFACTOR EVERYTHING HERE IN ONE FUNCTION SINCE VALUES NOT CHANGING
-        self.volt_house_hold = 230
+        self.volt_house_hold = 230  # Volt
         self.ampere_house_hold = 40
         self.phases = 3  # maybe 1
         self.power_house_hold = self.volt_house_hold * self.ampere_house_hold * self.phases
@@ -118,7 +120,7 @@ class ElectricityGridBus(Agent):
         """For number of households."""
         return self.scaled_load_profile * self.num_households
 
-    def step(self):
+    def set_timestamp(self):
         if self.current_timestamp is None:
             self.current_timestamp = self.start_date
             self.current_timestamp = pd.to_datetime(self.current_timestamp)
@@ -126,6 +128,8 @@ class ElectricityGridBus(Agent):
             # each step add 15 minutes
             self.current_timestamp = self.current_timestamp + datetime.timedelta(minutes=15)
 
+    def step(self):
+        self.set_timestamp()
         self.set_current_load()
         self.set_current_load_kw()
 
@@ -224,22 +228,15 @@ class StartModel(Model):
     # def calc_new_charging_per_car(self, agent):
     #     current_charging_value = agent.get_current_charging_value()
 
-
-
     def step(self):
         # if self.schedule.steps > 0:
         #     self.datacollector.collect(self)
-
         # step through schedule
         self.schedule.step()
         self.datacollector.collect(self)
 
         charging_data = self.datacollector.get_model_vars_dataframe()
         # total_charging_value = charging_data.loc[self.schedule.steps - 1, 'total_charging_power']
-
-
-
-
 
         # print(charging_data)
         # total_charging_value = charging_data.loc[self.schedule.steps, 'total_charging_power']
@@ -258,8 +255,6 @@ class StartModel(Model):
         #         agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
         #     charging_agents = [agent for agent in self.schedule.agents if agent.charging_value > 0]
         #     total_charging_value = sum(agent.charging_value for agent in charging_agents)
-
-
 
         # total_charging_value = test.loc[self.schedule.steps - 1, 'total_charging_power']
         # transformer_capacity = test.loc[self.schedule.steps - 1, 'test_transformer_capacity']
@@ -283,16 +278,16 @@ if __name__ == '__main__':
     start_date = '2008-07-13 14:15:00'
     end_date = '2008-07-14 15:30:00'
 
-    time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
-    num_intervals = int(time_diff / datetime.timedelta(minutes=15))
-
-    model = StartModel(num_agents=6,
-                       num_households_per_transformer=24,
-                       start_date=start_date,
-                       end_date=end_date)
-
-    for j in range(num_intervals):
-        model.step()
+    # time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
+    # num_intervals = int(time_diff / datetime.timedelta(minutes=15))
+    #
+    # model = StartModel(num_agents=6,
+    #                    num_households_per_transformer=24,
+    #                    start_date=start_date,
+    #                    end_date=end_date)
+    #
+    # for j in range(num_intervals):
+    #     model.step()
 
     # # We could take one of these transformers, e.g. ABB DRY-TYPE TRANSFORMER 25 kVA 480-120/240V
     # # https://electrification.us.abb.com/products/transformers-low-voltage-dry-type
@@ -303,3 +298,17 @@ if __name__ == '__main__':
     # print(sum)
     # df_stacked.plot()
     # plt.show()
+
+    transformer = ElectricityGridBus(unique_id=0,
+                                     num_households=24,
+                                     yearly_cons_household=3500,
+                                     start_date=start_date,
+                                     end_date=end_date)
+    transformer.set_timestamp()
+    transformer.set_current_load()
+    transformer.set_current_load_kw()
+    print(transformer.power_house_hold)
+
+    print(transformer.transformer_capacity)
+    print(transformer.current_timestamp)
+    print(transformer.current_load_kw)
