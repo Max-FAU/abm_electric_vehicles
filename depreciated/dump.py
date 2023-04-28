@@ -51,6 +51,91 @@ def one_customer_base_load(start_date):
 # print("Agent with Car ID {}: current charging_value is: {}".format(self.car_id, self.charging_value))
 
 
+# def set_plug_in_buffer(self, value: bool):
+#     self.plug_in_buffer = value
+#
+# def set_plugged_in(self, value: bool):
+#     self.plugged_in = value
+#
+# def get_plugged_in(self):
+#     return self.plugged_in
+
+# def set_plug_in_status(self):
+#     """Function to check the plug in buffer and consumption to set the right plug in status."""
+#     consumption = self.get_consumption()
+#     plug_in_buffer = self.get_plug_in_buffer()
+#     if consumption == 0 and plug_in_buffer == True:
+#         self.set_plug_in_buffer(False)
+#         self.set_plugged_in(False)
+#     if consumption == 0 and plug_in_buffer == False:
+#         self.set_plugged_in(True)
+#     if consumption > 0:
+#         self.set_plugged_in(False)
+#         self.set_plug_in_buffer(True)
+
+# def set_soc(self):
+#     battery_lvl = self.get_battery_lvl()
+#     battery_capacity = self.get_battey_capacity()
+#     self.soc = battery_lvl / battery_capacity
+#
+# def get_soc(self):
+#     return self.soc
+
+# def set_target_soc_reached(self, value: bool):
+#     self.target_soc_reached = value
+
+# def set_target_soc_reached(self, target_soc):
+#     soc = self.get_soc()
+#     if soc >= target_soc:
+#         self.set_target_soc_reached(True)
+#     else:
+#         self.set_target_soc_reached(False)
+
+# def get_target_soc_reached(self):
+#     return self.target_soc_reached
+
+# def set_charging_value(self, value: float):
+#     self.charging_value = value
+
+# def main_charging_value(self):
+#     plugged_in = self.get_plugged_in()
+#     target_soc_reached = self.get_target_soc_reached()
+#     if plugged_in == True and target_soc_reached == False:
+#         value = calc_charging_value()
+#         self.set_charging_value(value)
+#     if plugged_in == False:
+#         self.set_charging_value(0)
+#     if plugged_in == True and target_soc_reached == True:
+#         self.set_charging_value(0)
+#
+# def calc_charging_value():
+#     a = empty_battery_capacity()
+#     b = empty_battery_capacity_soc()
+#     c = charging_power
+#     # TODO MAYBE IMPLEMENT HERE CHARGING POWER OF CHARGER TOO
+#     possible_charging_value = min(empty_battery_capacity, possible_soc_capacity, charging_power)
+#     return possible_charging_value
+#
+# def empty_battery_capacity():
+#     return battery_capacity - battery_lvl
+#
+# def empty_battery_capacity_soc():
+#     potential_soc = target_soc - current_soc
+#     possible_charging_value = battery_capacity * potential_soc
+#     return possible_charging_value
+
+# def get_right_charging_power_car():
+#     """Can only charge at home or work."""
+#     if cluster == 1:  # home
+#         get_power_ac
+#     elif cluster == 2:  # work
+#         get_power_dc
+#     else:
+#         charging_power = 0
+
+def get_right_charging_power_station():
+    # TODO Maybe implement these charging values, but with what logic?
+    chose = [3.7, 7.2, 11, 22]
 
 
 if __name__ == '__main__':

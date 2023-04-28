@@ -14,7 +14,7 @@ class ElectricVehicle(Agent):
     # Track already assigned mobility profiles
     picked_mobility_data = []
 
-    def __init__(self, unique_id, model, car_model, start_date, end_date):
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc):
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
         self.unique_id = unique_id
@@ -22,6 +22,7 @@ class ElectricVehicle(Agent):
         self.car_model = car_model
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
+        self.target_soc = target_soc
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -48,9 +49,17 @@ class ElectricVehicle(Agent):
         self.terminal = None
 
         # Data from calculations for the timestamp
-        self.plug_in_buffer = None
+        self.plug_in_buffer = False
         self.plug_in_status = None
         self.battery_level = None
+
+        self.plugged_in = None
+        self.plug_in_buffer = True
+        self.target_soc_reached = False
+        self.soc = None
+        self.current_charging_power = None
+        self.charging_value = None
+        self.charging_power_car = None
 
     # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
@@ -115,6 +124,12 @@ class ElectricVehicle(Agent):
     def set_charging_power_ac(self):
         """Set the maximum charging power the car model is capable in AC charging."""
         self.charging_power_ac = self.car_values[self.car_model]["charging_power_ac"]
+
+    def get_charging_power_ac(self):
+        return self.charging_power_ac
+
+    def get_charging_power_dc(self):
+        return self.charging_power_dc
 
     def set_charging_power_dc(self):
         """Set the maximum charging power the car model is capable in DC charging."""
@@ -233,11 +248,19 @@ class ElectricVehicle(Agent):
     def set_consumption(self, df, timestamp):
         self.consumption = df.loc[timestamp, 'ECONSUMPTIONKWH']
 
+    def get_consumption(self):
+        """Returns consumption of current timestamp."""
+        return self.consumption
+
     def set_panel_session(self, df, timestamp):
         self.panel_session = df.loc[timestamp, 'ID_PANELSESSION']
 
     def set_terminal(self, df, timestamp):
         self.terminal = df.loc[timestamp, 'ID_TERMINAL']
+
+    def get_terminal(self):
+        """Returns terminal id of current timestamp."""
+        return self.terminal
 
     def get_last_trip_id(self) -> int:
         """Returns the trip number of the last trip of the day."""
@@ -280,6 +303,7 @@ class ElectricVehicle(Agent):
         """Setter function to set the battery level."""
         self.battery_level = value
 
+    # Call this
     def calc_new_battery_level(self):
         old_battery_lvl = self.get_battery_level()
         if old_battery_lvl is None:
@@ -287,10 +311,137 @@ class ElectricVehicle(Agent):
         new_battery_lvl = old_battery_lvl - self.consumption
         self.set_battery_level(new_battery_lvl)
 
-    @property
-    def soc(self):
+    def set_plug_in_buffer(self, value: bool):
+        """Set plug_in buffer."""
+        self.plug_in_buffer = value
+
+    def get_plug_in_buffer(self):
+        """Return current plug_in buffer."""
+        return self.plug_in_buffer
+
+    def set_soc(self):
         """Calculate battery level percentage remaining"""
-        return round((self.battery_level / self.battery_capacity) * 100, 2)
+        battery_level = self.get_battery_level()
+        battery_capacity = self.get_battery_capacity()
+        self.soc = round((battery_level / battery_capacity) * 100, 2)
+
+    def get_soc(self):
+        return self.soc
+
+    def get_target_soc(self):
+        return self.target_soc
+
+    def set_plugged_in(self, value: bool):
+        self.plugged_in = value
+
+    def get_plugged_in(self):
+        return self.plugged_in
+
+    # Call this
+    def set_plug_in_status(self):
+        """Function to check the plug in buffer and consumption to set the right plug in status."""
+        consumption = self.get_consumption()
+        plug_in_buffer = self.get_plug_in_buffer()
+        if consumption == 0 and plug_in_buffer is True:
+            self.set_plug_in_buffer(False)
+            self.set_plugged_in(False)
+        if consumption == 0 and plug_in_buffer is False:
+            self.set_plugged_in(True)
+        if consumption > 0:
+            self.set_plugged_in(False)
+            self.set_plug_in_buffer(True)
+
+    def set_target_soc_reached(self, value: bool):
+        self.target_soc_reached = value
+
+    def set_right_target_soc_reached(self):
+        soc = self.get_soc()
+        target_soc = self.get_target_soc()
+
+        if soc >= target_soc:
+            self.set_target_soc_reached(True)
+        else:
+            self.set_target_soc_reached(False)
+
+    def get_target_soc_reached(self):
+        return self.target_soc_reached
+
+    def set_charging_value(self, value: float):
+        self.charging_value = value
+
+    # Call this
+    def set_all_charging_values(self):
+        plugged_in = self.get_plugged_in()
+        target_soc_reached = self.get_target_soc_reached()
+
+        if plugged_in is True and target_soc_reached is False:
+            value = self.calc_charging_value()
+            self.set_charging_value(value)
+        if plugged_in is False:
+            self.set_charging_value(0)
+        if plugged_in is True and target_soc_reached is True:
+            self.set_charging_value(0)
+
+    def empty_battery_capacity(self):
+        battery_capacity = self.get_battery_capacity()
+        battery_level = self.get_battery_level()
+        return battery_capacity - battery_level
+
+    def empty_battery_capacity_soc(self):
+        target_soc = self.get_target_soc()
+        current_soc = self.get_soc()
+        battery_capacity = self.get_battery_capacity()
+        potential_soc = target_soc - current_soc
+        possible_charging_value = battery_capacity * potential_soc
+        return possible_charging_value
+
+    def calc_charging_value(self):
+        empty_battery_capacity = self.empty_battery_capacity()
+        possible_soc_capacity = self.empty_battery_capacity_soc()
+
+        # charging_power_car = self.get_charging_power_car()
+
+        charging_power_station = self.get_right_charging_power_station()
+
+        possible_charging_value = min(empty_battery_capacity,
+                                      possible_soc_capacity,
+                                      # charging_power_car,
+                                      charging_power_station)
+        return possible_charging_value
+
+    def get_charging_power_car(self):
+        return self.current_charging_power
+
+    def get_cluster(self):
+        return self.cluster
+
+    def set_charging_power(self, value):
+        self.current_charging_power = value
+
+    def set_charging_power_car(self):
+        """Can only charge at home or work."""
+        cluster = self.get_cluster()
+        ac_charging_capacity = self.get_charging_power_ac()
+        dc_charging_capacity = self.get_charging_power_dc()
+        if cluster == 1:  # home
+            self.set_charging_power(ac_charging_capacity)
+        elif cluster == 2:  # work
+            self.set_charging_power(dc_charging_capacity)
+        else:
+            #TODO Maybe remove this, if car should charge everywhere
+            self.set_charging_power(0)
+
+    def get_right_charging_power_station(self, index=1):
+        # TODO Maybe implement these charging values, but with what logic?
+        chose = [3.7, 7.2, 11, 22]
+        return chose[index]
+
+    def get_charging_value(self):
+        return self.charging_value
+
+    def charge(self):
+        charging_value = self.get_charging_value()
+        self.battery_level += charging_value
 
     def step(self):
         if self.timestamp is None:
@@ -300,8 +451,18 @@ class ElectricVehicle(Agent):
             self.timestamp += datetime.timedelta(minutes=15)
 
         self.set_data_current_timestamp()
+
         self.calc_new_battery_level()
-        print(self.soc)
+        self.set_soc()
+        self.set_right_target_soc_reached()
+
+        self.set_plug_in_status()
+        self.set_all_charging_values()
+        self.calc_charging_value()
+        self.charge()
+
+        print(self.charging_value)
+        print(self.battery_level)
 
 
 class ChargingModel(Model):
@@ -325,7 +486,8 @@ class ChargingModel(Model):
                                         model=self,
                                         car_model=car_model,
                                         start_date=self.start_date,
-                                        end_date=self.end_date)
+                                        end_date=self.end_date,
+                                        target_soc=100)
                 self.schedule.add(agent)
 
             except Exception as e:
