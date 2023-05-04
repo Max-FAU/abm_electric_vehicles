@@ -76,7 +76,8 @@ def label_mobility_data(df, no_deciles: int):
     df = df.reset_index(drop=True)
     return df
 
-
+# TODO Always check min date with max date and create new mapping file if these dates does not match with simulation
+# TODO start and end date
 def create_median_trip_length_file(directory_path,
                                    start_date,
                                    end_date,

@@ -10,6 +10,7 @@ import numpy as np
 
 
 class ElectricVehicle(Agent):
+    # V
     valid_models = ['bmw_i3', 'renault_zoe', 'tesla_model_3', 'vw_up', 'vw_id3', 'smart_fortwo', 'hyundai_kona', 'fiat_500', 'vw_golf', 'vw_id4_id5']
     # Track already assigned mobility profiles
     picked_mobility_data = []
@@ -50,16 +51,18 @@ class ElectricVehicle(Agent):
 
         # Data from calculations for the timestamp
         self.plug_in_buffer = False
-        self.plug_in_status = None
+        # self.plug_in_status = None
         self.battery_level = None
 
         self.plugged_in = None
         self.plug_in_buffer = True
         self.target_soc_reached = False
         self.soc = None
+
         self.current_charging_power = None
+        # self.charging_power_car = None
         self.charging_value = None
-        self.charging_power_car = None
+        self.grid_load = None
 
     # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
@@ -128,12 +131,12 @@ class ElectricVehicle(Agent):
     def get_charging_power_ac(self):
         return self.charging_power_ac
 
-    def get_charging_power_dc(self):
-        return self.charging_power_dc
-
     def set_charging_power_dc(self):
         """Set the maximum charging power the car model is capable in DC charging."""
         self.charging_power_dc = self.car_values[self.car_model]["charging_power_dc"]
+
+    def get_charging_power_dc(self):
+        return self.charging_power_dc
 
     def complete_initialization(self):
         """
@@ -323,7 +326,7 @@ class ElectricVehicle(Agent):
         """Calculate battery level percentage remaining"""
         battery_level = self.get_battery_level()
         battery_capacity = self.get_battery_capacity()
-        self.soc = round((battery_level / battery_capacity) * 100, 2)
+        self.soc = (battery_level / battery_capacity) * 100
 
     def get_soc(self):
         return self.soc
@@ -383,36 +386,62 @@ class ElectricVehicle(Agent):
             self.set_charging_value(0)
 
     def empty_battery_capacity(self):
+        """ Calculate the capacity that is empty / not charged in a battery. """
         battery_capacity = self.get_battery_capacity()
         battery_level = self.get_battery_level()
         return battery_capacity - battery_level
 
     def empty_battery_capacity_soc(self):
+        """ Calculate the capacity that is empty / not charged in a battery based on the soc and target soc. """
         target_soc = self.get_target_soc()
         current_soc = self.get_soc()
         battery_capacity = self.get_battery_capacity()
         potential_soc = target_soc - current_soc
-        possible_charging_value = battery_capacity * potential_soc
+        possible_charging_value = max(0, battery_capacity * potential_soc / 100)
         return possible_charging_value
 
     def calc_charging_value(self):
+        """
+        Function to calculate the real charging value.
+
+        This charging value is in kW and considers:
+        - charging power of the car
+        - charging power of the charging station
+        - empty battery capacity regarding total capacity
+        - empty battery capacity regarding soc
+
+        """
+
         empty_battery_capacity = self.empty_battery_capacity()
         possible_soc_capacity = self.empty_battery_capacity_soc()
 
-        # charging_power_car = self.get_charging_power_car()
+        # Set correct charging power, maybe implement on different step
+        self.set_charging_power_car()
+        charging_power_car = self.get_charging_power_car()
 
         charging_power_station = self.get_right_charging_power_station()
 
         possible_charging_value = min(empty_battery_capacity,
                                       possible_soc_capacity,
-                                      # charging_power_car,
+                                      charging_power_car,
                                       charging_power_station)
         return possible_charging_value
+
+    # TODO efficiency to 100 digits
+    def set_grid_load(self, charging_efficiency=0.95):
+        charging_value = self.get_charging_value()
+        self.grid_load = charging_value / charging_efficiency
 
     def get_charging_power_car(self):
         return self.current_charging_power
 
     def get_cluster(self):
+        """
+        Function to return the location of the car.
+        1 = Home
+        2 = Work
+        0 = Everywhere else
+        """
         return self.cluster
 
     def set_charging_power(self, value):
@@ -423,6 +452,7 @@ class ElectricVehicle(Agent):
         cluster = self.get_cluster()
         ac_charging_capacity = self.get_charging_power_ac()
         dc_charging_capacity = self.get_charging_power_dc()
+
         if cluster == 1:  # home
             self.set_charging_power(ac_charging_capacity)
         elif cluster == 2:  # work
@@ -433,6 +463,7 @@ class ElectricVehicle(Agent):
 
     def get_right_charging_power_station(self, index=1):
         # TODO Maybe implement these charging values, but with what logic?
+        # TODO Where is a large charging station and where is a slow charging station
         chose = [3.7, 7.2, 11, 22]
         return chose[index]
 
@@ -442,6 +473,111 @@ class ElectricVehicle(Agent):
     def charge(self):
         charging_value = self.get_charging_value()
         self.battery_level += charging_value
+
+    # TODO ADD THIS TO CLASS AS ATTRIBUTE
+    def set_adjusted_charging_value(self, value):
+        """
+        After interaction some cars have new charging values.
+        To revert the previous charging, a new variable will be introduced to store the new charging values separately.
+        """
+        self.adjusted_charging_value = value
+
+    def revert_charge(self):
+        """ Function to revert the added charging value."""
+        charging_value = self.get_charging_value()
+        self.battery_level -= charging_value
+
+
+    def set_car_charging_priority(self):
+        """
+        This priority algorithm is based on different factors, such as
+        SOC, Time the EV is plugged in, Next trip consumption, battery capacity
+        https://www.researchgate.net/publication/332142057_Priority_Determination_of_Charging_Electric_Vehicles_based_on_Trip_Distance
+        """
+        soc = self.get_soc()
+        if soc <= 20:
+            prio_soc = 3
+        elif 20 < soc < 80:
+            prio_soc = 2
+        else:
+            prio_soc = 1
+
+        next_trip = self.get_next_trip_id()
+        next_trip_consumption = self.get_consumption_with_range_anxiety(trip_id=next_trip)
+        # TODO Define values here, that can be used, instead of km distance it has to travel I changed it for energy needs for next trip / they are dependent on the distance
+        # if next_trip_consumption:
+        prio_next_trip = 1
+
+        # TODO Calculate the stop over duration and figure out what good values are
+        stop_over_duration = 1
+        if stop_over_duration <= 3:
+            prio_time = 3
+        elif 3 < stop_over_duration < 6:
+            prio_time = 2
+        else:
+            prio_time = 1
+
+        battery_capacity = self.get_battery_capacity()
+        if battery_capacity < 30:
+            prio_battery = 1
+        else:
+            prio_battery = 2
+
+        # TODO add this to class
+        self.charging_priority = prio_soc + prio_next_trip + prio_time + prio_battery
+
+    def get_charging_priority(self):
+        return self.charging_priority
+
+    def interaction_charging_values(self):
+        # This action is done in every step
+        processed_agents = 0
+        all_agents = self.model.schedule.agents
+        num_agents = len(all_agents)
+
+        # TODO set the max capacity to something calculated beforehand based on grid_agent
+        max_capacity = 25
+
+        for agent in self.model.schedule.agents:
+            processed_agents += 1
+            if processed_agents == num_agents:
+                print(num_agents)
+                print("processed agents is: ", processed_agents)
+                # filter all agents by electricvehicles
+                car_agents = [agent for agent in all_agents if isinstance(agent, ElectricVehicle)]
+                # get all charging values of all agents
+                car_agents_charging_values = [agent.charging_value for agent in car_agents]
+                # get only cars that are charging
+                num_charging_cars = len([value for value in car_agents_charging_values if value is not None and value != 0])
+                # calculate the total charging values of all car agents in the model
+                car_agents_charging_values_total = sum([x for x in car_agents_charging_values if x is not None])
+                # print(car_agents_charging_values_total)
+                if car_agents_charging_values_total > max_capacity:
+                    # TODO look for priorities for cars, and only charge cars with high priorities as long as we have sufficient power available
+                    exceeding_charging_value = car_agents_charging_values_total - max_capacity  # calc the exceeding energy
+                    reduction_per_agent = round(exceeding_charging_value / num_charging_cars, 1)  # calc the reduction per charging agent and round the result
+
+                    for agent in car_agents:  # update in all car agents the charging value
+                        if agent.charging_value is not None and agent.charging_value != 0:
+                            # TODO This does not work because we cannot reduce everything the same (sometimes we even reduce all charging value, and end up with reducing too less)
+                            agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
+                            # TODO after setting the new charging_value, the old charging value needs to be subtracted again from the battery
+                            # TODO and the new charging value needs to be set, and the self.charge() function again
+                            # TODO and the grid load needs to be reverted, and then calculated with the new charging_value
+
+
+
+
+        # for agent in all_agents:
+        #     # if last instance of all agents has been found
+        #     # get total charging_value of all agents
+        #     # reduce charging for all agents
+        #     pass
+        #     print(agent.charging_value)
+        # car_agents = [agent for agent in all_agents if isinstance(agent, ElectricVehicle)]
+        # last_agent = vars(last_agent)
+        # car_agents = [agent for agent in last_agent if isinstance(agent, ElectricVehicle)]
+        # print(last_agent)
 
     def step(self):
         if self.timestamp is None:
@@ -460,10 +596,13 @@ class ElectricVehicle(Agent):
         self.set_all_charging_values()
         self.calc_charging_value()
         self.charge()
+        self.set_grid_load()
+        self.interaction_charging_values()
 
-        print(self.charging_value)
-        print(self.battery_level)
-
+        # charging_power car
+        # current charging power
+        # plug in status
+        # pos
 
 class ChargingModel(Model):
     def __init__(self,
@@ -487,7 +626,7 @@ class ChargingModel(Model):
                                         car_model=car_model,
                                         start_date=self.start_date,
                                         end_date=self.end_date,
-                                        target_soc=100)
+                                        target_soc=80)
                 self.schedule.add(agent)
 
             except Exception as e:
@@ -522,9 +661,9 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    model = ChargingModel(num_agents=1,
+    model = ChargingModel(num_agents=5,
                           start_date='2008-07-13',
-                          end_date='2008-07-14')
+                          end_date='2008-07-15')
 
-    for i in range(96):
+    for i in range(3):
         model.step()

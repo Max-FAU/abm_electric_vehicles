@@ -216,7 +216,7 @@ class ElectricVehicle(mesa.Agent):
                 else:   # just take self.charging_value if already reduced
                     self.battery_level += self.charging_value
 
-    def calc_soc(self):
+    def set_soc(self):
         # Calculate the state of charge (SoC)
         self.soc = self.battery_level / self.battery_capacity
 
@@ -234,6 +234,12 @@ class ElectricVehicle(mesa.Agent):
 
     def get_current_charging_value(self):
         return self.charging_value
+
+    def get_soc(self):
+        return self.soc
+
+
+
 
     def update_charging_value(self):
         all_agents = self.model.schedule.agents    # get all agents of the model
