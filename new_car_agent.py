@@ -62,7 +62,8 @@ class ElectricVehicle(Agent):
         self.charging_value = None
         self.grid_load = None
 
-        self.charger_to_charger_trips = self.set_charger_to_charger_trips()
+        # self.charger_to_charger_trips = self.set_charger_to_charger_trips()
+        self.consumption_to_next_charge = None
         self.charging_duration = None
         self.charging_priority = None
 
@@ -228,36 +229,29 @@ class ElectricVehicle(Agent):
         self.mobility_data = self.load_mobility_data(file_path)
         print("... mobility data for car {} loaded successfully.".format(self.car_id))
 
-    # TODO RENAME PROCESS MOBILITY DATA
-    def set_charger_to_charger_trips(self) -> pd.DataFrame:
+    def set_consumption_to_next_charge(self) -> float:
         """
         Next trip is not defined by trip number but on leaving a charger and reaching a new charger.
         No public chargers considered here.
         """
-        mobility_data = self.mobility_data.copy()
+        # Make a copy of the mobility data to avoid modifying the original DataFrame
 
-        mobility_data['REAL_TRIP'] = 0
-        counter = 0
-        last_cluster = None
-        # TODO Calculate the energy consumption for the next block of 0s in Cluster
-        # iterate over all rows in the mobility dataframe
-        for index, row in mobility_data.iterrows():
-            # first row is just the counter
-            if index == 0:
-                row['REAL_TRIP'] = counter
-            # then compare with previous cluster
-            else:
-                if row['CLUSTER'] == last_cluster:
-                    row['REAL_TRIP'] = counter
-                else:
-                    # only add 1 if we reach a charger at cluster 1 home, or cluster 2 work
-                    if row['CLUSTER'] == 1 or row['CLUSTER'] == 2:
-                        counter += 1
-                    row['REAL_TRIP'] = counter
-                last_cluster = row['CLUSTER']
-            # set the trip number in NEXT
-            mobility_data.loc[index, 'REAL_TRIP'] = row['REAL_TRIP']
-        return mobility_data
+        mobility_data = self.mobility_data.copy()
+        df_slice = mobility_data.loc[self.timestamp:]
+
+        block_sum = 0
+        for i in range(len(df_slice)):
+            if df_slice.iloc[i]['CLUSTER'] == 0:
+                block_sum += df_slice.iloc[i]['ECONSUMPTIONKWH']
+            elif block_sum != 0:
+                self.consumption_to_next_charge = block_sum
+                break
+        else:
+            self.consumption_to_next_charge = 0
+
+
+    def get_consumption_to_next_charge(self):
+        return self.consumption_to_next_charge
 
     def set_charging_duration(self):
         mobility_data = self.get_mobility_data()
@@ -319,34 +313,6 @@ class ElectricVehicle(Agent):
     def get_last_trip_id(self) -> int:
         """Returns the trip number of the last trip of the day."""
         return max(self.mobility_data['TRIPNUMBER'])
-
-    def get_charger_to_charger_trips(self):
-        return self.charger_to_charger_trips
-
-    def get_next_trip_needs(self) -> int:
-        """
-        Function that only considers consumption from charger to charger, in this case
-        from home to work,
-        from work to home,
-        from home to home,
-        from work to work.
-        """
-        # TODO REFACTOR THIS
-        df = self.get_charger_to_charger_trips()
-        current_trip_id = df.loc[self.timestamp, 'REAL_TRIP']
-        next_trip_id = current_trip_id + 1
-
-        # group by trip number to find next trip needs
-        consumption_of_trips = df.groupby('REAL_TRIP')['ECONSUMPTIONKWH'].sum()
-
-        # TODO CHECK WHEN NEXT TRIP STARTS AND WHEN IT ENDS
-        try:
-            consumption_of_next_trip = consumption_of_trips.loc[current_trip_id]
-        except:
-            # cannot get the trip id + 1 if it is the last trip
-            consumption_of_next_trip = consumption_of_trips.loc[current_trip_id]
-
-        return consumption_of_next_trip
 
     def get_current_trip_id(self) -> int:
         """Return the trip number of the current trip."""
@@ -594,14 +560,14 @@ class ElectricVehicle(Agent):
             prio_soc = 1
 
         # TODO NEXT TRIP NEEDS DOES NOT WORK
-        consumption_next_trip = self.get_next_trip_needs()
-        print(consumption_next_trip)
+        self.set_consumption_to_next_charge()
+        consumption_next_trip = self.get_consumption_to_next_charge()
         consumption_next_trip_range_anx = self.get_consumption_with_range_anxiety(consumption_next_trip)
         battery_capacity = self.get_battery_capacity()
 
         # Calculate the consumption next trip related to the battery capacity
         # Next trip needs a large amount of battery capacity then prioritize charging
-        relative_need = consumption_next_trip_range_anx / battery_capacity * 100
+        relative_need = round(consumption_next_trip_range_anx / battery_capacity * 100, 0)
 
         if relative_need <= 20:
             prio_next_trip = 1
@@ -619,9 +585,15 @@ class ElectricVehicle(Agent):
             prio_time = 2
         else:
             prio_time = 1
+
         print('soc {}, prio_soc {},'
               'next_trip {}, prio_next_trip {}, '
-              'charging_duration {}, prio_time {}'.format(self.soc, prio_soc, relative_need, prio_next_trip, charging_duration, prio_time))
+              'charging_duration {}, prio_time {}'.format(self.soc,
+                                                          prio_soc,
+                                                          relative_need,
+                                                          prio_next_trip,
+                                                          charging_duration,
+                                                          prio_time))
 
         self.charging_priority = prio_soc + prio_next_trip + prio_time
 
