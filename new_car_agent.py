@@ -50,19 +50,20 @@ class ElectricVehicle(Agent):
         self.terminal = None
 
         # Data from calculations for the timestamp
-        self.plug_in_buffer = False
-        # self.plug_in_status = None
         self.battery_level = None
-
         self.plugged_in = None
         self.plug_in_buffer = True
         self.target_soc_reached = False
         self.soc = None
 
-        self.current_charging_power = None
-        # self.charging_power_car = None
+        # self.current_charging_power = None
+        self.charging_power_car = None
+        self.charging_power_station = None
         self.charging_value = None
         self.grid_load = None
+
+        self.charger_to_charger_trips = self.set_charger_to_charger_trips()
+        self.charging_duration = None
 
     # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
@@ -177,7 +178,7 @@ class ElectricVehicle(Agent):
                                            no_deciles=no_clusters,
                                            file_name=file_name_median_trip_len)
 
-    # TODO Refactor and split into smaller functions
+    # TODO Refactor and split into smaller functions or maybe create a new file
     def create_potential_matches(self, df) -> pd.DataFrame:
         # check all already picked 'car_ids' and filter them out of df
         df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
@@ -226,6 +227,55 @@ class ElectricVehicle(Agent):
         self.mobility_data = self.load_mobility_data(file_path)
         print("... mobility data for car {} loaded successfully.".format(self.car_id))
 
+    # TODO RENAME PROCESS MOBILITY DATA
+    def set_charger_to_charger_trips(self) -> pd.DataFrame:
+        """
+        Next trip is not defined by trip number but on leaving a charger and reaching a new charger.
+        No public chargers considered here.
+        """
+        mobility_data = self.mobility_data.copy()
+
+        mobility_data['REAL_TRIP'] = 0
+        counter = 0
+        last_cluster = None
+
+        # iterate over all rows in the mobility dataframe
+        for i, row in mobility_data.iterrows():
+            # first row is just the counter
+            if i == 0:
+                row['REAL_TRIP'] = counter
+            # then compare with previous cluster
+            else:
+                if row['CLUSTER'] == last_cluster:
+                    row['REAL_TRIP'] = counter
+                else:
+                    # only add 1 if we reach a charger at cluster 1 home, or cluster 2 work
+                    if row['CLUSTER'] == 1 or row['CLUSTER'] == 2:
+                        counter += 1
+                    row['REAL_TRIP'] = counter
+                last_cluster = row['CLUSTER']
+            # set the trip number in NEXT
+            mobility_data.loc[i, 'REAL_TRIP'] = row['REAL_TRIP']
+        return mobility_data
+
+    def set_charging_duration(self):
+        mobility_data = self.get_mobility_data()
+
+        current_timestamp = self.timestamp
+        df_slice = mobility_data.loc[current_timestamp:]
+        cluster_changes = df_slice[df_slice['CLUSTER'].isin([0])]
+        if not cluster_changes.empty:
+            next_cluster_change = cluster_changes.index[0]
+            duration = next_cluster_change - current_timestamp
+        else:
+            duration = pd.Timedelta('0 days 00:00:00')
+        duration_minutes = duration.total_seconds() / 60
+        duration_hours = duration_minutes / 60
+        self.charging_duration = duration_hours
+
+    def get_charging_duration(self):
+        return self.charging_duration
+
     def get_mobility_data(self):
         return self.mobility_data
 
@@ -269,6 +319,38 @@ class ElectricVehicle(Agent):
         """Returns the trip number of the last trip of the day."""
         return max(self.mobility_data['TRIPNUMBER'])
 
+    # TODO NEXT TRIP NEEDS SHOULD BE BASED ON -> Home to Home | Home to Work | Work to Home | Work to Work ?
+    # Idea: Copy the mobility_data create a new column that checks
+    # if the cluster value changed, if so add +1 to the counter in the new column, if it is the same value, do nothing
+    # now we have a column counting how often it changed from 1 to 2, from 2 to 1, from 1 to 1 (if 0 between), from
+    # 2 to 2 (if 0 between), this creates "real" trip ids.
+    # after creating real trip ids, we can groupby real trip id and calculate the sum.
+
+    def get_charger_to_charger_trips(self):
+        return self.charger_to_charger_trips
+
+    def get_next_trip_needs(self) -> int:
+        """
+        Function that only considers consumption from charger to charger, in this case
+        from home to work,
+        from work to home,
+        from home to home,
+        from work to work.
+        """
+        df = self.get_charger_to_charger_trips()
+        current_trip_id = df.loc[self.timestamp, 'REAL_TRIP']
+        next_trip_id = current_trip_id + 1
+
+        # group by trip number to find next trip needs
+        consumption_of_trips = df.groupby('REAL_TRIP')['ECONSUMPTIONKWH'].sum()
+        try:
+            consumption_of_next_trip = consumption_of_trips.loc[next_trip_id]
+        except:
+            # cannot get the trip id + 1 if it is the last trip
+            consumption_of_next_trip = consumption_of_trips.loc[current_trip_id]
+
+        return consumption_of_next_trip
+
     def get_current_trip_id(self) -> int:
         """Return the trip number of the current trip."""
         return self.mobility_data.loc[self.timestamp, 'TRIPNUMBER']
@@ -288,10 +370,9 @@ class ElectricVehicle(Agent):
         df_consumption_trips = self.get_consumption_of_trips()
         return df_consumption_trips.loc[trip_id]
 
-    def get_consumption_with_range_anxiety(self, trip_id, anxiety_factor=1.5):
+    def get_consumption_with_range_anxiety(self, consumption_trip, anxiety_factor=1.5):
         """Returns the consumption, added the range anxiety factor to it."""
-        consumption_spec_trip = self.get_consumption_of_trip_id(trip_id)
-        return consumption_spec_trip * anxiety_factor
+        return consumption_trip * anxiety_factor
 
     def get_battery_capacity(self):
         """Getter function to return the total battery capacity of a car model."""
@@ -345,26 +426,28 @@ class ElectricVehicle(Agent):
         """Function to check the plug in buffer and consumption to set the right plug in status."""
         consumption = self.get_consumption()
         plug_in_buffer = self.get_plug_in_buffer()
-        if consumption == 0 and plug_in_buffer is True:
-            self.set_plug_in_buffer(False)
-            self.set_plugged_in(False)
-        if consumption == 0 and plug_in_buffer is False:
-            self.set_plugged_in(True)
-        if consumption > 0:
-            self.set_plugged_in(False)
-            self.set_plug_in_buffer(True)
 
-    def set_target_soc_reached(self, value: bool):
-        self.target_soc_reached = value
+        if consumption == 0:
+            if plug_in_buffer is True:
+                self.set_plug_in_buffer(False)
+                self.set_plugged_in(False)
+            else:
+                self.set_plugged_in(True)
+        else:
+            if plug_in_buffer is True:
+                self.set_plugged_in(False)
+            else:
+                self.set_plugged_in(False)
+                self.set_plug_in_buffer(True)
 
-    def set_right_target_soc_reached(self):
+    def set_target_soc_reached(self):
         soc = self.get_soc()
         target_soc = self.get_target_soc()
 
         if soc >= target_soc:
-            self.set_target_soc_reached(True)
+            self.target_soc_reached = True
         else:
-            self.set_target_soc_reached(False)
+            self.target_soc_reached = False
 
     def get_target_soc_reached(self):
         return self.target_soc_reached
@@ -412,60 +495,72 @@ class ElectricVehicle(Agent):
 
         """
 
-        empty_battery_capacity = self.empty_battery_capacity()
-        possible_soc_capacity = self.empty_battery_capacity_soc()
+        empty_battery_capacity = self.empty_battery_capacity()   # kwh
+        possible_soc_capacity = self.empty_battery_capacity_soc()    # kwh
 
         # Set correct charging power, maybe implement on different step
         self.set_charging_power_car()
         charging_power_car = self.get_charging_power_car()
+        charging_value_car = charging_power_car / 4   # kwh
 
-        charging_power_station = self.get_right_charging_power_station()
+        self.set_charging_power_station()
+        charging_power_station = self.get_charging_power_station()
+        charging_value_station = charging_power_station / 4    # kwh
 
         possible_charging_value = min(empty_battery_capacity,
                                       possible_soc_capacity,
-                                      charging_power_car,
-                                      charging_power_station)
+                                      charging_value_car,
+                                      charging_value_station)
+
         return possible_charging_value
 
     # TODO efficiency to 100 digits
+    # grid value will be the same // grid load is the wrong name for it
     def set_grid_load(self, charging_efficiency=0.95):
         charging_value = self.get_charging_value()
+        charging_power = charging_value * 4   # kW
         self.grid_load = charging_value / charging_efficiency
-
-    def get_charging_power_car(self):
-        return self.current_charging_power
 
     def get_cluster(self):
         """
         Function to return the location of the car.
         1 = Home
         2 = Work
-        0 = Everywhere else
+        0 = Everywhere else / Public
         """
         return self.cluster
-
-    def set_charging_power(self, value):
-        self.current_charging_power = value
 
     def set_charging_power_car(self):
         """Can only charge at home or work."""
         cluster = self.get_cluster()
         ac_charging_capacity = self.get_charging_power_ac()
         dc_charging_capacity = self.get_charging_power_dc()
-
+        # TODO maybe set work to dc_charging_capacity
         if cluster == 1:  # home
-            self.set_charging_power(ac_charging_capacity)
+            self.charging_power_car = ac_charging_capacity
         elif cluster == 2:  # work
-            self.set_charging_power(dc_charging_capacity)
+            self.charging_power_car = ac_charging_capacity
         else:
-            #TODO Maybe remove this, if car should charge everywhere
-            self.set_charging_power(0)
+            # TODO change this, if car should charge everywhere
+            self.charging_power_car = 0
 
-    def get_right_charging_power_station(self, index=1):
-        # TODO Maybe implement these charging values, but with what logic?
-        # TODO Where is a large charging station and where is a slow charging station
-        chose = [3.7, 7.2, 11, 22]
-        return chose[index]
+    def get_charging_power_car(self):
+        return self.charging_power_car
+
+    def set_charging_power_station(self):
+        cluster = self.get_cluster()
+        home = 11
+        work = 22
+        public = 55  # or 22
+        if cluster == 1:
+            self.charging_power_station = home
+        elif cluster == 2:
+            self.charging_power_station = work
+        else:
+            self.charging_power_station = public
+
+    def get_charging_power_station(self):
+        return self.charging_power_station
 
     def get_charging_value(self):
         return self.charging_value
@@ -487,11 +582,10 @@ class ElectricVehicle(Agent):
         charging_value = self.get_charging_value()
         self.battery_level -= charging_value
 
-
     def set_car_charging_priority(self):
         """
         This priority algorithm is based on different factors, such as
-        SOC, Time the EV is plugged in, Next trip consumption, battery capacity
+        SOC, Time the EV is plugged in, Next trip consumption
         https://www.researchgate.net/publication/332142057_Priority_Determination_of_Charging_Electric_Vehicles_based_on_Trip_Distance
         """
         soc = self.get_soc()
@@ -502,29 +596,35 @@ class ElectricVehicle(Agent):
         else:
             prio_soc = 1
 
-        next_trip = self.get_next_trip_id()
-        next_trip_consumption = self.get_consumption_with_range_anxiety(trip_id=next_trip)
-        # TODO Define values here, that can be used, instead of km distance it has to travel I changed it for energy needs for next trip / they are dependent on the distance
-        # if next_trip_consumption:
-        prio_next_trip = 1
+        consumption_next_trip = self.get_next_trip_needs()
+        consumption_next_trip_range_anx = self.get_consumption_with_range_anxiety(consumption_next_trip)
+        battery_capacity = self.get_battery_capacity()
 
-        # TODO Calculate the stop over duration and figure out what good values are
-        stop_over_duration = 1
-        if stop_over_duration <= 3:
+        # Calculate the consumption next trip related to the battery capacity
+        # Next trip needs a large amount of battery capacity then prioritize charging
+        relative_need = consumption_next_trip_range_anx / battery_capacity * 100
+
+        if relative_need <= 20:
+            prio_next_trip = 1
+        elif 20 < relative_need < 80:
+            prio_next_trip = 2
+        else:
+            prio_next_trip = 3
+
+        # in hours
+        self.set_charging_duration()
+        charging_duration = self.get_charging_duration()
+        if charging_duration <= 3:
             prio_time = 3
-        elif 3 < stop_over_duration < 6:
+        elif 3 < charging_duration < 6:
             prio_time = 2
         else:
             prio_time = 1
-
-        battery_capacity = self.get_battery_capacity()
-        if battery_capacity < 30:
-            prio_battery = 1
-        else:
-            prio_battery = 2
-
+        print('soc {}, prio_soc {},'
+              'next_trip {}, prio_next_trip {}, '
+              'charging_duration {}, prio_time {}'.format(self.soc, prio_soc, relative_need, prio_next_trip, charging_duration, prio_time))
         # TODO add this to class
-        self.charging_priority = prio_soc + prio_next_trip + prio_time + prio_battery
+        charging_priority = prio_soc + prio_next_trip + prio_time
 
     def get_charging_priority(self):
         return self.charging_priority
@@ -590,14 +690,29 @@ class ElectricVehicle(Agent):
 
         self.calc_new_battery_level()
         self.set_soc()
-        self.set_right_target_soc_reached()
+        self.set_target_soc_reached()
 
         self.set_plug_in_status()
         self.set_all_charging_values()
         self.calc_charging_value()
         self.charge()
         self.set_grid_load()
-        self.interaction_charging_values()
+
+        self.set_car_charging_priority()
+
+        # print("charging_power_station: {}, "
+        #       "charging_power_car: {}, "
+        #       "soc {}, "
+        #       "battery {}, "
+        #       "final {},"
+        #       "battery lvl {}".format(self.charging_power_station,
+        #                               self.charging_power_car,
+        #                               self.empty_battery_capacity_soc(),
+        #                               self.empty_battery_capacity(),
+        #                               self.get_charging_value(),
+        #                               self.get_battery_level()))
+
+        # self.interaction_charging_values()
 
         # charging_power car
         # current charging power
@@ -626,7 +741,7 @@ class ChargingModel(Model):
                                         car_model=car_model,
                                         start_date=self.start_date,
                                         end_date=self.end_date,
-                                        target_soc=80)
+                                        target_soc=100)
                 self.schedule.add(agent)
 
             except Exception as e:
@@ -661,9 +776,9 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    model = ChargingModel(num_agents=5,
+    model = ChargingModel(num_agents=1,
                           start_date='2008-07-13',
-                          end_date='2008-07-15')
+                          end_date='2008-07-14')
 
-    for i in range(3):
+    for i in range(96):
         model.step()
