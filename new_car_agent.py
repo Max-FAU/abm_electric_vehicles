@@ -10,7 +10,7 @@ import numpy as np
 
 
 class ElectricVehicle(Agent):
-    # V
+    # Only the valid models below are implemented yet
     valid_models = ['bmw_i3', 'renault_zoe', 'tesla_model_3', 'vw_up', 'vw_id3', 'smart_fortwo', 'hyundai_kona', 'fiat_500', 'vw_golf', 'vw_id4_id5']
     # Track already assigned mobility profiles
     picked_mobility_data = []
@@ -64,6 +64,7 @@ class ElectricVehicle(Agent):
 
         self.charger_to_charger_trips = self.set_charger_to_charger_trips()
         self.charging_duration = None
+        self.charging_priority = None
 
     # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
@@ -624,7 +625,7 @@ class ElectricVehicle(Agent):
               'next_trip {}, prio_next_trip {}, '
               'charging_duration {}, prio_time {}'.format(self.soc, prio_soc, relative_need, prio_next_trip, charging_duration, prio_time))
         # TODO add this to class
-        charging_priority = prio_soc + prio_next_trip + prio_time
+        self.charging_priority = prio_soc + prio_next_trip + prio_time
 
     def get_charging_priority(self):
         return self.charging_priority
