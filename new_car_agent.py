@@ -241,9 +241,9 @@ class ElectricVehicle(Agent):
         last_cluster = None
 
         # iterate over all rows in the mobility dataframe
-        for i, row in mobility_data.iterrows():
+        for index, row in mobility_data.iterrows():
             # first row is just the counter
-            if i == 0:
+            if index == 0:
                 row['REAL_TRIP'] = counter
             # then compare with previous cluster
             else:
@@ -256,7 +256,7 @@ class ElectricVehicle(Agent):
                     row['REAL_TRIP'] = counter
                 last_cluster = row['CLUSTER']
             # set the trip number in NEXT
-            mobility_data.loc[i, 'REAL_TRIP'] = row['REAL_TRIP']
+            mobility_data.loc[index, 'REAL_TRIP'] = row['REAL_TRIP']
         return mobility_data
 
     def set_charging_duration(self):
@@ -597,7 +597,9 @@ class ElectricVehicle(Agent):
         else:
             prio_soc = 1
 
+        # TODO NEXT TRIP NEEDS DOES NOT WORK
         consumption_next_trip = self.get_next_trip_needs()
+        print(consumption_next_trip)
         consumption_next_trip_range_anx = self.get_consumption_with_range_anxiety(consumption_next_trip)
         battery_capacity = self.get_battery_capacity()
 
@@ -624,7 +626,7 @@ class ElectricVehicle(Agent):
         print('soc {}, prio_soc {},'
               'next_trip {}, prio_next_trip {}, '
               'charging_duration {}, prio_time {}'.format(self.soc, prio_soc, relative_need, prio_next_trip, charging_duration, prio_time))
-        # TODO add this to class
+
         self.charging_priority = prio_soc + prio_next_trip + prio_time
 
     def get_charging_priority(self):
