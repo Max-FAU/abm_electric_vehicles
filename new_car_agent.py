@@ -239,7 +239,7 @@ class ElectricVehicle(Agent):
         mobility_data['REAL_TRIP'] = 0
         counter = 0
         last_cluster = None
-
+        # TODO Calculate the energy consumption for the next block of 0s in Cluster
         # iterate over all rows in the mobility dataframe
         for index, row in mobility_data.iterrows():
             # first row is just the counter
@@ -320,13 +320,6 @@ class ElectricVehicle(Agent):
         """Returns the trip number of the last trip of the day."""
         return max(self.mobility_data['TRIPNUMBER'])
 
-    # TODO NEXT TRIP NEEDS SHOULD BE BASED ON -> Home to Home | Home to Work | Work to Home | Work to Work ?
-    # Idea: Copy the mobility_data create a new column that checks
-    # if the cluster value changed, if so add +1 to the counter in the new column, if it is the same value, do nothing
-    # now we have a column counting how often it changed from 1 to 2, from 2 to 1, from 1 to 1 (if 0 between), from
-    # 2 to 2 (if 0 between), this creates "real" trip ids.
-    # after creating real trip ids, we can groupby real trip id and calculate the sum.
-
     def get_charger_to_charger_trips(self):
         return self.charger_to_charger_trips
 
@@ -338,14 +331,17 @@ class ElectricVehicle(Agent):
         from home to home,
         from work to work.
         """
+        # TODO REFACTOR THIS
         df = self.get_charger_to_charger_trips()
         current_trip_id = df.loc[self.timestamp, 'REAL_TRIP']
         next_trip_id = current_trip_id + 1
 
         # group by trip number to find next trip needs
         consumption_of_trips = df.groupby('REAL_TRIP')['ECONSUMPTIONKWH'].sum()
+
+        # TODO CHECK WHEN NEXT TRIP STARTS AND WHEN IT ENDS
         try:
-            consumption_of_next_trip = consumption_of_trips.loc[next_trip_id]
+            consumption_of_next_trip = consumption_of_trips.loc[current_trip_id]
         except:
             # cannot get the trip id + 1 if it is the last trip
             consumption_of_next_trip = consumption_of_trips.loc[current_trip_id]
