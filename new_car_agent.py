@@ -625,60 +625,90 @@ class ElectricVehicle(Agent):
             all_priorities += [agent.get_charging_priority()]
 
         # Filter to keep only ElectricVehicles (Filter out transformers)
-        car_agents = [agent for agent in all_agents if isinstance(agent, ElectricVehicle)]
+        car_agents = []
+        for agent in all_agents:
+            if isinstance(agent, ElectricVehicle):
+                car_agents += [agent]
+
         # get all charging values of all agents
-        car_agents_charging_values = [agent.charging_value for agent in car_agents]
+        car_agents_charging_values = []
+        for agent in car_agents:
+            car_agents_charging_values += [agent.charging_value]
+
         # calculate the total charging values of all car agents in the model
-        car_agents_charging_values_total = sum([x for x in car_agents_charging_values if x is not None])
+        total_charging_value = 0
+        for value in car_agents_charging_values:
+            if value is not None:
+                total_charging_value += value
 
-        if car_agents_charging_values_total > max_capacity:
-            # Create starting value once the charging_value
+        # calculate the total charging power of all car agents in the model
+        total_charging_power = total_charging_value * 4
+
+        if total_charging_power > max_capacity:
+            # Create starting values
             list_charged_agent_ids = []
-            new_charging_total_value = 0
-            starting_priority = max(all_priorities)
+            interim_total_charging_power = 0
+            current_priority = max(all_priorities)   # start from this priority
 
-            while new_charging_total_value < max_capacity and starting_priority > 0:
-                charging_power_of_current_priority = 0
+            # Keep doing this until we reach the max_capacity or priority 0
+            while interim_total_charging_power < max_capacity and current_priority > 0:
+                charging_power_current_priority = 0
+                # 1 Loop through all car agents
                 for agent in car_agents:
-                    if agent.get_charging_priority() == starting_priority:
-                        # # Get agent_ids with the current charging priority
-                        # list_charged_agent_ids += [agent.get_unique_id()]
-                        # Get the charging_value for those agents
+                    # Check if the starting priority is currently to be charged
+                    if agent.get_charging_priority() == current_priority:
+                        # Get the charging_value for the agents with matching starting priority
                         current_agent_charging_value = agent.get_charging_value()
-                        if agent.get_charging_value() > 0:
-                            # Get agent_ids with the current charging priority
-                            list_charged_agent_ids += [agent.get_unique_id()]
-                        # TODO REWORK THIS
-                        # Get the charging_power for those agents
-                        current_agent_charging_power = current_agent_charging_value * 4  # because we need kw
-                        charging_power_of_current_priority += current_agent_charging_power
-                        print("original_per_agent", current_agent_charging_power)
+                        # Convert to KW
+                        current_agent_charging_power = current_agent_charging_value * 4
 
-                # Check if charging power of current priority and the total_charging_value is below max_capacity
-                if new_charging_total_value + charging_power_of_current_priority <= max_capacity:
-                    new_charging_total_value += charging_power_of_current_priority
-                    starting_priority -= 1
+                        # Get agent_ids with the current charging priority
+                        if current_agent_charging_value > 0:
+                            list_charged_agent_ids += [agent.get_unique_id()]
+
+                        # Add the current charging power of the agent to the charging_power_current_priority
+                        charging_power_current_priority += current_agent_charging_power
+
+                # 2 Check if charging power of current priority and the total_charging_value is below max_capacity
+                if interim_total_charging_power + charging_power_current_priority <= max_capacity:
+                    # If below add charging_power to interim total charging power and reduce priority
+                    interim_total_charging_power += charging_power_current_priority
+                    current_priority -= 1
+
+                # if charging power of current priority is above max capacity break while loop
+                # and perform reduction that current priority is equal to max capacity
                 else:
                     # Get only agents that need to have reduced charging_power
-                    filtered_car_list = [agent for agent in all_agents if agent.unique_id in list_charged_agent_ids]
+                    filtered_car_list = []
+                    for agent in all_agents:
+                        # Check if agent.unique id is in the list of charged_agents (having charging value > 0)
+                        if agent.unique_id in list_charged_agent_ids:
+                            filtered_car_list += [agent]
+
                     # calc new possible charging value to reach max capacity
-                    new_charging_total_value = charging_power_of_current_priority - (new_charging_total_value + charging_power_of_current_priority - max_capacity)
+                    charging_power_total = charging_power_current_priority - (interim_total_charging_power + charging_power_current_priority - max_capacity)
                     # set charging value per charging_car if they have same priority give all the same
-                    charging_power_per_car = new_charging_total_value / len(list_charged_agent_ids)
+                    charging_power_per_car = charging_power_total / len(list_charged_agent_ids)
 
                     for agent in filtered_car_list:
-                        # will reduce the new battery level by the original charging value
-                        agent.revert_charge()
+                        print("id", agent.get_unique_id())
+                        # TODO WHEN TO REVERT CHARGING AND HOW TO RECALCULATE EVERYTHING FOR ALL CARS
+                        # TODO AND THE NEW CHARGING VALUE SHOULD NEVER BE HIGHER THAN THE ORIGINAL VALUE
+                        current_charging_value = agent.get_charging_value()
+                        current_charging_power = current_charging_value * 4  # because we need kw
+                        print("original agent power", current_charging_power)
+                        charging_power_per_car = min(current_charging_power, charging_power_per_car)
+                        print("after interaction power", charging_power_per_car)
 
-                        charging_value_car = charging_power_per_car * 4
+                        # will reduce the new battery level by the original charging value
+                        # agent.revert_charge()
+
+                        charging_value_car = charging_power_per_car / 4  # because we need kwh
                         agent.set_charging_value(value=charging_value_car)
                         agent.charge()
-                        print(agent.charging_value)
-                    # print("reduced_per_agent", charging_power_per_car)
+                        print("after interaction value", agent.charging_value)
                     break
 
-            # print(new_charging_total_value)
-            # print(list_charged_agent_ids)
 
     def step(self):
         if self.timestamp is None:
@@ -790,7 +820,7 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    model = ChargingModel(num_agents=2,
+    model = ChargingModel(num_agents=10,
                           start_date='2008-07-13',
                           end_date='2008-07-14')
 
