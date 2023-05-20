@@ -6,6 +6,7 @@ import random
 import datetime
 from mobility_data import MobilityDataAggregator
 from mesa.time import SimultaneousActivation
+from mesa.datacollection import DataCollector
 import numpy as np
 
 
@@ -63,6 +64,7 @@ class ElectricVehicle(Agent):
         self.grid_load = None
 
         # self.charger_to_charger_trips = self.set_charger_to_charger_trips()
+        self.max_transformer_capacity = 1   # TODO take from grid_agent
         self.consumption_to_next_charge = None
         self.charging_duration = None
         self.charging_priority = None
@@ -224,10 +226,13 @@ class ElectricVehicle(Agent):
         car_id = self.create_final_match(df)
         self.set_car_id(car_id=car_id)
 
-        # Load correct mobility file
-        file_path = aux.create_file_path(car_id, test=True)
-        self.mobility_data = self.load_mobility_data(file_path)
-        print("... mobility data for car {} loaded successfully.".format(self.car_id))
+        # # Load correct mobility file
+        # file_path = aux.create_file_path(car_id, test=True)
+        # self.mobility_data = self.load_mobility_data(file_path)
+        # print("... mobility data for car {} loaded successfully.".format(self.car_id))
+        # self.mobility_data.to_csv("mobility_test_data.csv")
+        self.mobility_data = self.load_mobility_data('mobility_test_data.csv')
+
 
     def set_consumption_to_next_charge(self) -> float:
         """
@@ -615,99 +620,79 @@ class ElectricVehicle(Agent):
     def get_car_id(self):
         return self.car_id
 
+    def get_max_transformer_capacity(self):
+        return self.max_transformer_capacity
+
     def interaction_charging_values(self):
-        max_capacity = 1   # TODO GET FROM OTHER CLASS WHICH IS TRANSFORMER MAX CAPACITY
+        max_capacity = self.get_max_transformer_capacity()   # TODO GET FROM OTHER CLASS WHICH IS TRANSFORMER MAX CAPACITY
 
         # This action is done in every step
         all_agents = self.model.schedule.agents
-        all_priorities = []
-        for agent in all_agents:
-            all_priorities += [agent.get_charging_priority()]
 
         # Filter to keep only ElectricVehicles (Filter out transformers)
         car_agents = []
         for agent in all_agents:
             if isinstance(agent, ElectricVehicle):
-                car_agents += [agent]
+                car_agents.append(agent)
 
-        # get all charging values of all agents
-        car_agents_charging_values = []
-        for agent in car_agents:
-            car_agents_charging_values += [agent.charging_value]
+        from interaction import ElectricVehicleInteraction
 
-        # calculate the total charging values of all car agents in the model
-        total_charging_value = 0
-        for value in car_agents_charging_values:
-            if value is not None:
-                total_charging_value += value
-
-        # calculate the total charging power of all car agents in the model
-        total_charging_power = total_charging_value * 4
+        model_interaction = ElectricVehicleInteraction(car_agents)
+        all_charging_agents = model_interaction.get_all_charging_agents()
+        all_priorities = model_interaction.get_all_priorities()
+        total_charging_power = model_interaction.get_total_charging_power()
 
         if total_charging_power > max_capacity:
-            # Create starting values
-            list_charged_agent_ids = []
-            interim_total_charging_power = 0
-            current_priority = max(all_priorities)   # start from this priority
+            highest_priority = max(all_priorities)
+            lowest_priority = min(all_priorities)
+            agents_higher_priority = []
 
-            # Keep doing this until we reach the max_capacity or priority 0
-            while interim_total_charging_power < max_capacity and current_priority > 0:
-                charging_power_current_priority = 0
-                # 1 Loop through all car agents
-                for agent in car_agents:
-                    # Check if the starting priority is currently to be charged
-                    if agent.get_charging_priority() == current_priority:
-                        # Get the charging_value for the agents with matching starting priority
-                        current_agent_charging_value = agent.get_charging_value()
-                        # Convert to KW
-                        current_agent_charging_power = current_agent_charging_value * 4
+            available_capacity = max_capacity
 
-                        # Get agent_ids with the current charging priority
-                        if current_agent_charging_value > 0:
-                            list_charged_agent_ids += [agent.get_unique_id()]
+            for priority in range(highest_priority, lowest_priority - 1, -1):
+                agents_priority = model_interaction.get_agents_with_charging_priority(priority)
 
-                        # Add the current charging power of the agent to the charging_power_current_priority
-                        charging_power_current_priority += current_agent_charging_power
+                sub_total_charging_power = 0
 
-                # 2 Check if charging power of current priority and the total_charging_value is below max_capacity
-                if interim_total_charging_power + charging_power_current_priority <= max_capacity:
-                    # If below add charging_power to interim total charging power and reduce priority
-                    interim_total_charging_power += charging_power_current_priority
-                    current_priority -= 1
+                for agent in agents_priority:
+                    charging_power = agent.get_charging_value() * 4  # we need kw
+                    sub_total_charging_power += charging_power
 
-                # if charging power of current priority is above max capacity break while loop
-                # and perform reduction that current priority is equal to max capacity
-                else:
-                    # Get only agents that need to have reduced charging_power
-                    filtered_car_list = []
-                    for agent in all_agents:
-                        # Check if agent.unique id is in the list of charged_agents (having charging value > 0)
-                        if agent.unique_id in list_charged_agent_ids:
-                            filtered_car_list += [agent]
+                    if sub_total_charging_power > available_capacity:
+                        charging_power_per_agent = model_interaction.get_charging_power_per_agent(available_capacity, priority)
+                        for agent in agents_priority:
+                            agent.revert_charge()
+                            charging_value_per_agent = charging_power_per_agent / 4  # because we need kwh
+                            agent.set_charging_value(value=charging_value_per_agent)
+                            agent.charge()
 
-                    # calc new possible charging value to reach max capacity
-                    charging_power_total = charging_power_current_priority - (interim_total_charging_power + charging_power_current_priority - max_capacity)
-                    # set charging value per charging_car if they have same priority give all the same
-                    charging_power_per_car = charging_power_total / len(list_charged_agent_ids)
+                        # check if higher priorities were already processed
+                        for agent in all_charging_agents:
+                            if agent not in agents_priority and agent not in agents_higher_priority:
+                                agent.revert_charge()
+                                agent.set_charging_value(value=0)
+                                agent.charge()
+                        break
 
-                    for agent in filtered_car_list:
-                        print("id", agent.get_unique_id())
-                        # TODO WHEN TO REVERT CHARGING AND HOW TO RECALCULATE EVERYTHING FOR ALL CARS
-                        # TODO AND THE NEW CHARGING VALUE SHOULD NEVER BE HIGHER THAN THE ORIGINAL VALUE
-                        current_charging_value = agent.get_charging_value()
-                        current_charging_power = current_charging_value * 4  # because we need kw
-                        print("original agent power", current_charging_power)
-                        charging_power_per_car = min(current_charging_power, charging_power_per_car)
-                        print("after interaction power", charging_power_per_car)
+                    agents_higher_priority.append(agent)
+                available_capacity -= sub_total_charging_power
 
-                        # will reduce the new battery level by the original charging value
-                        # agent.revert_charge()
+            # find all agents with the highest priority
+            # add the charging power one after another to a sub total charging power for that priority
+            # check continously if the sub total charging power for that priority is higher than the max_capacity
+            # if it is higher all cars of that priority needs to be reduced AND all other charging values
+            # need to be set to 0
 
-                        charging_value_car = charging_power_per_car / 4  # because we need kwh
-                        agent.set_charging_value(value=charging_value_car)
-                        agent.charge()
-                        print("after interaction value", agent.charging_value)
-                    break
+            # else
+            # go to the next priority and start the process again
+            # BUT set the charging value only of the agents to 0 that have lower priority than the current
+            # priority, or check if agents are in a list, if they are not in the list, set the charging power
+            # to 0
+
+            # AFTER THIS revert the charge for all cars that are either set to 0 or have reduced charging power
+            # set new charging value (if not already done before??)
+            # charge again
+
 
 
     def step(self):
@@ -726,8 +711,8 @@ class ElectricVehicle(Agent):
         self.set_plug_in_status()
         self.set_all_charging_values()
         self.calc_charging_value()
-        # self.charge()
-        # self.set_grid_load()
+        self.charge()
+        self.set_grid_load()
 
         self.set_car_charging_priority()
 
@@ -741,8 +726,8 @@ class ElectricVehicle(Agent):
         if all_agents_ids[-1] == current_agent_id:
             self.interaction_charging_values()
 
-        self.charge()
-        self.set_grid_load()
+        # self.charge()
+        # self.set_grid_load()
 
         # print("charging_power_station: {}, "
         #       "charging_power_car: {}, "
@@ -774,7 +759,7 @@ class ChargingModel(Model):
         self.num_agents = num_agents  # agents are number of EV Agents
         self.schedule = SimultaneousActivation(self)
 
-        self.list_models = self.generate_cars_according_to_dist()
+        self.list_models = self.generate_test_cars()
 
         i = 0
         while i < len(self.list_models):
@@ -795,6 +780,37 @@ class ChargingModel(Model):
             print("Added agent number {} to the model.".format(i))
             i += 1
 
+        self.datacollector = DataCollector(
+            model_reporters={
+                "possible_capacity": self.return_1,
+                "total_recharge_power": self.get_total_recharge_power
+            },
+            agent_reporters={
+                "timestamp": lambda a: a.timestamp,
+                "recharge_value": lambda a: a.charging_value,
+                "battery_level": lambda a: a.battery_level,
+                "soc": lambda a: a.soc,
+                "power": lambda a: a.charging_value * 4
+            }
+        )
+
+    def get_total_recharge_power(self):
+        total_charging_power = sum([agent.charging_value * 4 for agent in self.schedule.agents])
+        return total_charging_power
+
+    def return_1(self):
+        return int(1)
+
+    def generate_test_cars(self):
+        file_path = 'car_models.txt'
+        car_models = []
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+            for line in lines:
+                value = line.strip()
+                car_models.append(value)
+        return car_models
+
     def generate_cars_according_to_dist(self):
         with open('car_values.json', 'r') as f:
             data = json.load(f)
@@ -811,18 +827,34 @@ class ChargingModel(Model):
 
         car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
         # print(len(car_names), "car names generated.")
+        np.savetxt('car_models.txt', car_models, fmt='%s', delimiter=' ')
 
         return car_models
 
     def step(self):
         # step through schedule
         self.schedule.step()
+        self.datacollector.collect(self)
 
 
 if __name__ == '__main__':
-    model = ChargingModel(num_agents=10,
-                          start_date='2008-07-13',
-                          end_date='2008-07-14')
+    start_date = '2008-07-13 15:15'
+    end_date = '2008-07-14'
 
-    for i in range(96):
+    time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
+    num_intervals = int(time_diff / datetime.timedelta(minutes=15))
+
+    model = ChargingModel(num_agents=4,
+                          start_date=start_date,
+                          end_date=end_date)
+
+    for i in range(num_intervals):
         model.step()
+
+    model_data = model.datacollector.get_model_vars_dataframe()
+    agent_data = model.datacollector.get_agent_vars_dataframe()
+    aux.set_print_options()
+    print(agent_data)
+    import matplotlib.pyplot as plt
+    model_data.plot()
+    plt.show()

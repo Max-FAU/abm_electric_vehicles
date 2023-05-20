@@ -139,4 +139,6 @@ def get_right_charging_power_station():
 
 
 if __name__ == '__main__':
-    one_customer_base_load('2008-07-13')
+    path = r'C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data\quarterly_simulation_test.csv'
+    df = pd.read_csv(path, delimiter=";")
+    print(df)

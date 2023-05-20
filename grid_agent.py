@@ -75,6 +75,7 @@ class ElectricityGridBus:
             self.customers_contracted_power.append(single_customer_value)
 
     def get_c_diversity(self):
+        """Set diversity factor, used if load profiles created artificially."""
         return 0.2 + 0.8 / math.sqrt(self.num_households)
 
     def calc_transformer_power_capacity(self):
@@ -311,4 +312,5 @@ if __name__ == '__main__':
 
     print(transformer.transformer_capacity)
     print(transformer.current_timestamp)
+    print(transformer.current_load)
     print(transformer.current_load_kw)
