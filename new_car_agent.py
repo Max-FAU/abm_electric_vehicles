@@ -241,7 +241,7 @@ class ElectricVehicle(Agent):
         # Make a copy of the mobility data to avoid modifying the original DataFrame
         mobility_data = self.mobility_data.copy()
         df_slice = mobility_data.loc[self.timestamp:]
-
+        aux.set_print_options()
         block_sum = 0
         for i in range(len(df_slice)):
             if df_slice.iloc[i]['CLUSTER'] == 0:
@@ -260,12 +260,14 @@ class ElectricVehicle(Agent):
 
         current_timestamp = self.timestamp
         df_slice = mobility_data.loc[current_timestamp:]
-        cluster_changes = df_slice[df_slice['CLUSTER'].isin([0])]
+        cluster_changes = df_slice[df_slice['CLUSTER'].eq(0)]
+
         if not cluster_changes.empty:
-            next_cluster_change = cluster_changes.index[0]
-            duration = next_cluster_change - current_timestamp
+            next_cluster_change = cluster_changes.index[-1]
         else:
-            duration = pd.Timedelta('0 days 00:00:00')
+            next_cluster_change = df_slice.index[-1]
+            # duration = pd.Timedelta('0 days 00:00:00')
+        duration = next_cluster_change - current_timestamp
         duration_minutes = duration.total_seconds() / 60
         duration_hours = duration_minutes / 60
         self.charging_duration = duration_hours
@@ -773,7 +775,8 @@ class ChargingModel(Model):
         self.num_agents = num_agents  # agents are number of EV Agents
         self.schedule = SimultaneousActivation(self)
 
-        self.list_models = self.generate_test_cars()
+        self.list_models = self.generate_cars_according_to_dist()
+        # self.list_models = self.generate_test_cars()
 
         i = 0
         while i < len(self.list_models):
@@ -813,7 +816,7 @@ class ChargingModel(Model):
         return total_charging_power
 
     def return_1(self):
-        return int(1)
+        return int(5)
 
     def generate_test_cars(self):
         file_path = 'car_models.txt'
@@ -852,7 +855,7 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    start_date = '2008-07-13 15:15'
+    start_date = '2008-07-13 15:00'
     end_date = '2008-07-14'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
@@ -867,8 +870,8 @@ if __name__ == '__main__':
 
     model_data = model.datacollector.get_model_vars_dataframe()
     agent_data = model.datacollector.get_agent_vars_dataframe()
-    aux.set_print_options()
-    print(agent_data)
+    # aux.set_print_options()
+    # print(agent_data)
     import matplotlib.pyplot as plt
     ax = model_data.plot()
     ax.set_ylim(0, 35)
