@@ -1,9 +1,6 @@
-from new_car_agent import ElectricVehicle
-
-
-class ElectricVehicleInteraction:
+class InteractionClass:
     def __init__(self, all_agents):
-        super().__init__()
+        # super().__init__()
         self.all_agents = all_agents
 
     def get_all_agents(self):

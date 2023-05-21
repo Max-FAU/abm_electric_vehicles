@@ -64,7 +64,7 @@ class ElectricVehicle(Agent):
         self.grid_load = None
 
         # self.charger_to_charger_trips = self.set_charger_to_charger_trips()
-        self.max_transformer_capacity = 1   # TODO take from grid_agent
+        self.max_transformer_capacity = 5   # TODO take from grid_agent
         self.consumption_to_next_charge = None
         self.charging_duration = None
         self.charging_priority = None
@@ -182,7 +182,7 @@ class ElectricVehicle(Agent):
                                            no_deciles=no_clusters,
                                            file_name=file_name_median_trip_len)
 
-    # TODO Refactor and split into smaller functions or maybe create a new file
+    # TODO Refactor and split into smaller functions or maybe create a new class
     def create_potential_matches(self, df) -> pd.DataFrame:
         # check all already picked 'car_ids' and filter them out of df
         df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
@@ -226,21 +226,19 @@ class ElectricVehicle(Agent):
         car_id = self.create_final_match(df)
         self.set_car_id(car_id=car_id)
 
-        # # Load correct mobility file
-        # file_path = aux.create_file_path(car_id, test=True)
-        # self.mobility_data = self.load_mobility_data(file_path)
-        # print("... mobility data for car {} loaded successfully.".format(self.car_id))
+        # Load correct mobility file
+        file_path = aux.create_file_path(car_id, test=True)
+        self.mobility_data = self.load_mobility_data(file_path)
+        print("... mobility data for car {} loaded successfully.".format(self.car_id))
         # self.mobility_data.to_csv("mobility_test_data.csv")
-        self.mobility_data = self.load_mobility_data('mobility_test_data.csv')
+        # self.mobility_data = self.load_mobility_data('mobility_test_data.csv')
 
-
-    def set_consumption_to_next_charge(self) -> float:
+    def set_consumption_to_next_charge(self):
         """
         Next trip is not defined by trip number but on leaving a charger and reaching a new charger.
         No public chargers considered here.
         """
         # Make a copy of the mobility data to avoid modifying the original DataFrame
-
         mobility_data = self.mobility_data.copy()
         df_slice = mobility_data.loc[self.timestamp:]
 
@@ -253,7 +251,6 @@ class ElectricVehicle(Agent):
                 break
         else:
             self.consumption_to_next_charge = 0
-
 
     def get_consumption_to_next_charge(self):
         return self.consumption_to_next_charge
@@ -346,7 +343,6 @@ class ElectricVehicle(Agent):
         """Getter function to return the total battery capacity of a car model."""
         return self.battery_capacity
 
-    # TODO REFACTOR THE SETTER AND GETTER METHODS WTIH PROPERTIES
     def get_battery_level(self):
         """Getter function to return the current battery level."""
         return self.battery_level
@@ -544,14 +540,6 @@ class ElectricVehicle(Agent):
         charging_value = self.get_charging_value()
         self.battery_level += charging_value
 
-    # TODO ADD THIS TO CLASS AS ATTRIBUTE
-    def set_adjusted_charging_value(self, value):
-        """
-        After interaction some cars have new charging values.
-        To revert the previous charging, a new variable will be introduced to store the new charging values separately.
-        """
-        self.adjusted_charging_value = value
-
     def revert_charge(self):
         """ Function to revert the added charging value."""
         charging_value = self.get_charging_value()
@@ -624,7 +612,7 @@ class ElectricVehicle(Agent):
         return self.max_transformer_capacity
 
     def interaction_charging_values(self):
-        max_capacity = self.get_max_transformer_capacity()   # TODO GET FROM OTHER CLASS WHICH IS TRANSFORMER MAX CAPACITY
+        max_capacity = self.get_max_transformer_capacity()
 
         # This action is done in every step
         all_agents = self.model.schedule.agents
@@ -635,9 +623,9 @@ class ElectricVehicle(Agent):
             if isinstance(agent, ElectricVehicle):
                 car_agents.append(agent)
 
-        from interaction import ElectricVehicleInteraction
+        from interaction import InteractionClass
 
-        model_interaction = ElectricVehicleInteraction(car_agents)
+        model_interaction = InteractionClass(car_agents)
         all_charging_agents = model_interaction.get_all_charging_agents()
         all_priorities = model_interaction.get_all_priorities()
         total_charging_power = model_interaction.get_total_charging_power()
@@ -660,10 +648,35 @@ class ElectricVehicle(Agent):
 
                     if sub_total_charging_power > available_capacity:
                         charging_power_per_agent = model_interaction.get_charging_power_per_agent(available_capacity, priority)
+                        charging_value_per_agent = charging_power_per_agent / 4
+
+                        charging_value_to_distribute = 0
+                        agents_exceeding_charging_value = []
+                        num_agents_priority = len(agents_priority)
+
+                        for agent in agents_priority:
+                            if agent.get_charging_value() < charging_value_per_agent:
+                                charging_value_to_distribute += (charging_value_per_agent - agent.get_charging_value())
+                                agents_exceeding_charging_value.append(agent)
+
+                        other_agents_increase = charging_value_to_distribute / num_agents_priority
+
                         for agent in agents_priority:
                             agent.revert_charge()
-                            charging_value_per_agent = charging_power_per_agent / 4  # because we need kwh
-                            agent.set_charging_value(value=charging_value_per_agent)
+                            if agent in agents_exceeding_charging_value:
+                                charging_value = min(agent.get_charging_value(), charging_value_per_agent)
+                            else:
+                                charging_value = charging_value_per_agent + other_agents_increase
+                            if charging_value > agent.get_charging_value():
+                                charging_value = min(agent.get_charging_value(), charging_value)
+                                # TODO
+                                # TODO Leave away
+                                # Schauen ob der neue charging value mit der "umlage" größer ist als der
+                                # alte, wenn größer als der alte, dann den alten charging value nehmen
+                                # differenz wieder berechnen und auf die noch nicht processed agents addieren
+                                # wenn der letzte agent dass dann nicht mehr aufnehmen kann, wegfallen lassen.
+
+                            agent.set_charging_value(value=charging_value)
                             agent.charge()
 
                         # check if higher priorities were already processed
@@ -679,7 +692,7 @@ class ElectricVehicle(Agent):
 
             # find all agents with the highest priority
             # add the charging power one after another to a sub total charging power for that priority
-            # check continously if the sub total charging power for that priority is higher than the max_capacity
+            # check continuously if the sub total charging power for that priority is higher than the max_capacity
             # if it is higher all cars of that priority needs to be reduced AND all other charging values
             # need to be set to 0
 
@@ -690,9 +703,10 @@ class ElectricVehicle(Agent):
             # to 0
 
             # AFTER THIS revert the charge for all cars that are either set to 0 or have reduced charging power
-            # set new charging value (if not already done before??)
             # charge again
-
+            # if charging reduction is split to all charging cars with same priority
+            # it have to be maximum capped at last charging value
+            # the rest of charging value that is then used can be distributed to all others
 
 
     def step(self):
@@ -856,5 +870,6 @@ if __name__ == '__main__':
     aux.set_print_options()
     print(agent_data)
     import matplotlib.pyplot as plt
-    model_data.plot()
+    ax = model_data.plot()
+    ax.set_ylim(0, 35)
     plt.show()
