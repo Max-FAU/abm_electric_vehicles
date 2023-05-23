@@ -37,11 +37,19 @@ class PowerCustomer:
         df_stacked['datetime'] = df_stacked['datetime'].apply(lambda x: x.replace(year=relevant_year))
         # set the datetime column as index
         df_stacked.set_index('datetime', inplace=True)
-
+        # self.calc_max_peak_load(df_stacked)
         return df_stacked
 
     def scale_customer_base_load(self):
         return self.standard_load_profile * self.scale
+
+    def calc_max_peak_load(self, df_stacked):
+        """
+        This is only for comparison of the peak load of h0 profile.
+        According to this study, one household has approximately 1 kW peak load.
+        https://www.researchgate.net/publication/323702213_Exploring_the_impact_of_network_tariffs_on_household_electricity_expenditures_using_load_profiles_and_socio-economic_characteristics
+        """
+        print(max(df_stacked['value'] * 3.5 / 1000))
 
     def set_current_load(self):
         """Base load for the corresponding timestamp."""
@@ -67,7 +75,7 @@ class Transformer:
         # calculation of transformer capacity
         self.customers_contracted_power = []
         self.get_customers_contracted_power()
-        self.f_safety = 1.5
+        self.f_safety = 1.5  # long lifetime of transformer means high safety
         self.p_over = 10
         self.transformer_capacity = self.calc_transformer_power_capacity()
 
@@ -76,7 +84,9 @@ class Transformer:
         volt = 230
         ampere = 63
         phases = 1
-        return volt * ampere * phases
+        power_house_hold = volt * ampere * phases
+        # 14490 watt -> 14.5 kW
+        return power_house_hold
 
     def get_customers_contracted_power(self):
         for i in range(self.num_households):
@@ -114,27 +124,21 @@ if __name__ == '__main__':
     # # take siemens https://mall.industry.siemens.com/mall/de/WW/Catalog/Products/10283675
     # # size depends on the phases we want
     # # usually we have as output 400 V
-    #
-    # print(sum)
-    # df_stacked.plot()
-    # plt.show()
 
     transformer = Transformer(unique_id=0,
-                              num_households=20)
+                              num_households=100)
 
     timestamp = start_date
     while timestamp <= end_date:
         customer = PowerCustomer(timestamp=timestamp,
-                                 yearly_cons_household=4000,
+                                 yearly_cons_household=3500,
                                  start_date=start_date,
                                  end_date=end_date)
 
         customer.set_current_load()
         customer.set_current_load_kw()
 
-        print(customer.timestamp)
-        print(transformer.transformer_capacity)
-        print(customer.current_load_kw * 20)
+        print(customer.current_load_kw)
 
         timestamp += interval
 
