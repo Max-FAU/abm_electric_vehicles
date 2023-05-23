@@ -4,8 +4,7 @@ import pandas as pd
 
 
 class PowerCustomer:
-    def __init__(self, timestamp, yearly_cons_household, start_date: str, end_date: str):
-        self.timestamp = timestamp
+    def __init__(self, yearly_cons_household, start_date: str, end_date: str):
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
         self.yearly_cons_household = yearly_cons_household
@@ -18,7 +17,7 @@ class PowerCustomer:
         self.current_load = None  # from base load in W
         self.current_load_kw = None  # in kW
 
-    def one_customer_base_load(self):
+    def create_cleaned_h0_profile(self):
         # file = "h0_profile.csv"
         df = pd.read_csv("h0_profile.csv")
         # df = pd.read_csv(r"W:\abm_electric_vehicles\h0_profile.csv")
@@ -38,7 +37,11 @@ class PowerCustomer:
         # set the datetime column as index
         df_stacked.set_index('datetime', inplace=True)
         # self.calc_max_peak_load(df_stacked)
-        return df_stacked
+        df_stacked.to_csv('cleaned_h0_profile.csv')
+
+    def one_customer_base_load(self):
+        base_load = pd.read_csv('cleaned_h0_profile.csv', parse_dates=['datetime'], index_col=['datetime'])
+        return base_load
 
     def scale_customer_base_load(self):
         return self.standard_load_profile * self.scale
@@ -51,9 +54,9 @@ class PowerCustomer:
         """
         print(max(df_stacked['value'] * 3.5 / 1000))
 
-    def set_current_load(self):
+    def set_current_load(self, timestamp):
         """Base load for the corresponding timestamp."""
-        self.current_load = self.scaled_load_profile.loc[self.timestamp, 'value']
+        self.current_load = self.scaled_load_profile.loc[timestamp, 'value']
 
     def set_current_load_kw(self):
         self.current_load_kw = self.current_load / 1000
@@ -129,17 +132,14 @@ if __name__ == '__main__':
                               num_households=100)
 
     timestamp = start_date
+    customer = PowerCustomer(yearly_cons_household=3500,
+                             start_date=start_date,
+                             end_date=end_date)
+
     while timestamp <= end_date:
-        customer = PowerCustomer(timestamp=timestamp,
-                                 yearly_cons_household=3500,
-                                 start_date=start_date,
-                                 end_date=end_date)
-
-        customer.set_current_load()
+        customer.set_current_load(timestamp)
         customer.set_current_load_kw()
-
         print(customer.current_load_kw)
-
         timestamp += interval
 
 
