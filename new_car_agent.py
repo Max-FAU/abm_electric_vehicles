@@ -16,7 +16,7 @@ class ElectricVehicle(Agent):
     # Track already assigned mobility profiles
     picked_mobility_data = []
 
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc):
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
         self.unique_id = unique_id
@@ -64,7 +64,7 @@ class ElectricVehicle(Agent):
         self.grid_load = None
 
         # self.charger_to_charger_trips = self.set_charger_to_charger_trips()
-        self.max_transformer_capacity = 5   # TODO take from grid_agent
+        self.max_transformer_capacity = max_transformer_capacity   # TODO take from grid_agent
         self.consumption_to_next_charge = None
         self.charging_duration = None
         self.charging_priority = None
@@ -777,9 +777,14 @@ class ChargingModel(Model):
 
         self.list_models = self.generate_cars_according_to_dist()
         # self.list_models = self.generate_test_cars()
+        num_agents = len(self.list_models)
+
+        from grid_agent import Transformer
+        transformer = Transformer(num_households=num_agents)
+        self.max_capacity = transformer.get_max_capacity()
 
         i = 0
-        while i < len(self.list_models):
+        while i < num_agents:
             car_model = self.list_models[i]
             try:
                 agent = ElectricVehicle(unique_id=i,
@@ -787,7 +792,8 @@ class ChargingModel(Model):
                                         car_model=car_model,
                                         start_date=self.start_date,
                                         end_date=self.end_date,
-                                        target_soc=100)
+                                        target_soc=100,
+                                        max_transformer_capacity=self.max_capacity)
                 self.schedule.add(agent)
 
             except Exception as e:
@@ -799,7 +805,7 @@ class ChargingModel(Model):
 
         self.datacollector = DataCollector(
             model_reporters={
-                "possible_capacity": self.return_1,
+                "possible_capacity": lambda m: self.max_capacity,
                 "total_recharge_power": self.get_total_recharge_power
             },
             agent_reporters={
@@ -814,9 +820,6 @@ class ChargingModel(Model):
     def get_total_recharge_power(self):
         total_charging_power = sum([agent.charging_value * 4 for agent in self.schedule.agents])
         return total_charging_power
-
-    def return_1(self):
-        return int(5)
 
     def generate_test_cars(self):
         file_path = 'car_models.txt'
@@ -855,13 +858,13 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    start_date = '2008-07-13 15:00'
-    end_date = '2008-07-14'
+    start_date = '2008-07-11'
+    end_date = '2008-07-18'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=4,
+    model = ChargingModel(num_agents=20,
                           start_date=start_date,
                           end_date=end_date)
 
@@ -874,5 +877,5 @@ if __name__ == '__main__':
     # print(agent_data)
     import matplotlib.pyplot as plt
     ax = model_data.plot()
-    ax.set_ylim(0, 35)
+    # ax.set_ylim(0, 35)
     plt.show()

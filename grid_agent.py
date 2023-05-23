@@ -67,10 +67,8 @@ class PowerCustomer:
 
 class Transformer:
     def __init__(self,
-                 unique_id,
                  num_households):
 
-        self.unique_id = unique_id
         self.num_households = num_households  # num_households == num EV Agents
 
         self.power_house_hold = self.set_power_house_hold()
@@ -80,7 +78,7 @@ class Transformer:
         self.get_customers_contracted_power()
         self.f_safety = 1.5  # long lifetime of transformer means high safety
         self.p_over = 10
-        self.transformer_capacity = self.calc_transformer_power_capacity()
+        self.capacity = self.calc_transformer_power_capacity()
 
     @staticmethod
     def set_power_house_hold():
@@ -115,6 +113,8 @@ class Transformer:
         # print("Transformer with a capacity of {} kW".format(self.transformer_capacity))
         return self.get_c_diversity() * sum(self.customers_contracted_power) * self.f_safety + self.p_over
 
+    def get_max_capacity(self):
+        return self.capacity
 
 if __name__ == '__main__':
 
@@ -128,8 +128,7 @@ if __name__ == '__main__':
     # # size depends on the phases we want
     # # usually we have as output 400 V
 
-    transformer = Transformer(unique_id=0,
-                              num_households=100)
+    transformer = Transformer(num_households=100)
 
     timestamp = start_date
     customer = PowerCustomer(yearly_cons_household=3500,
