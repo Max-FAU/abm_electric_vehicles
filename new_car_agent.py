@@ -69,6 +69,8 @@ class ElectricVehicle(Agent):
         self.charging_duration = None
         self.charging_priority = None
 
+        self.base_load = 0
+
     # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
     def timestamp(self):
@@ -618,10 +620,10 @@ class ElectricVehicle(Agent):
         customer = PowerCustomer(yearly_cons_household=3500, start_date=self.start_date, end_date=self.end_date)
         customer.set_current_load(self.timestamp)
         customer.set_current_load_kw()
-        customer_base_load = customer.get_current_load_kw()
+        self.base_load = customer.get_current_load_kw()
 
         transformer_capacity = self.get_max_transformer_capacity()
-        max_capacity = transformer_capacity - customer_base_load * len(ElectricVehicle.picked_mobility_data)
+        max_capacity = transformer_capacity - self.base_load * len(ElectricVehicle.picked_mobility_data)
 
         # This action is done in every step
         all_agents = self.model.schedule.agents
@@ -813,7 +815,8 @@ class ChargingModel(Model):
         self.datacollector = DataCollector(
             model_reporters={
                 "possible_capacity": lambda m: self.max_capacity,
-                "total_recharge_power": self.get_total_recharge_power
+                "total_recharge_power": self.get_total_recharge_power,
+                "total_customer_load": self.get_total_customer_load
             },
             agent_reporters={
                 "timestamp": lambda a: a.timestamp,
@@ -827,6 +830,11 @@ class ChargingModel(Model):
     def get_total_recharge_power(self):
         total_charging_power = sum([agent.charging_value * 4 for agent in self.schedule.agents])
         return total_charging_power
+
+    # TODO THIS DOES NOT WORK FIX
+    def get_total_customer_load(self):
+        total_base_load = sum([agent.base_load for agent in self.schedule.agents])
+        return total_base_load
 
     def generate_test_cars(self):
         file_path = 'car_models.txt'
@@ -871,7 +879,7 @@ if __name__ == '__main__':
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=20,
+    model = ChargingModel(num_agents=3,
                           start_date=start_date,
                           end_date=end_date)
 
@@ -880,6 +888,8 @@ if __name__ == '__main__':
 
     model_data = model.datacollector.get_model_vars_dataframe()
     agent_data = model.datacollector.get_agent_vars_dataframe()
+    print(model_data['total_customer_load'])
+    model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
     # aux.set_print_options()
     # print(agent_data)
     import matplotlib.pyplot as plt
