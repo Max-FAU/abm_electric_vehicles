@@ -143,5 +143,3 @@ if __name__ == '__main__':
 
 
     # print(transformer.power_house_hold)
-
-

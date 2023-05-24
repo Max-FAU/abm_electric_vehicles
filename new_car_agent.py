@@ -64,7 +64,7 @@ class ElectricVehicle(Agent):
         self.grid_load = None
 
         # self.charger_to_charger_trips = self.set_charger_to_charger_trips()
-        self.max_transformer_capacity = max_transformer_capacity   # TODO take from grid_agent
+        self.max_transformer_capacity = max_transformer_capacity
         self.consumption_to_next_charge = None
         self.charging_duration = None
         self.charging_priority = None
@@ -614,7 +614,14 @@ class ElectricVehicle(Agent):
         return self.max_transformer_capacity
 
     def interaction_charging_values(self):
-        max_capacity = self.get_max_transformer_capacity()
+        from grid_agent import PowerCustomer
+        customer = PowerCustomer(yearly_cons_household=3500, start_date=self.start_date, end_date=self.end_date)
+        customer.set_current_load(self.timestamp)
+        customer.set_current_load_kw()
+        customer_base_load = customer.get_current_load_kw()
+
+        transformer_capacity = self.get_max_transformer_capacity()
+        max_capacity = transformer_capacity - customer_base_load * len(ElectricVehicle.picked_mobility_data)
 
         # This action is done in every step
         all_agents = self.model.schedule.agents
@@ -879,3 +886,7 @@ if __name__ == '__main__':
     ax = model_data.plot()
     # ax.set_ylim(0, 35)
     plt.show()
+
+
+    # input available capacity for charging
+    # max capacity - customer household
