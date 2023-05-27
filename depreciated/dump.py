@@ -1,7 +1,7 @@
 import mesa
 from mesa import Model
 from mesa.time import RandomActivation
-from grid_agent import ElectricityGridBus
+from customer_agent import ElectricityGridBus
 import pandas as pd
 import datetime
 

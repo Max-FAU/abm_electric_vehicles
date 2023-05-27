@@ -1,12 +1,5 @@
 import pandas as pd
-import mobility_data as md
-import json
-import numpy as np
-from car_agent import ElectricVehicle
-from mobility_data import MobilityDataAggregator
-import random
-
-
+from depreciated.car_agent_old import ElectricVehicle
 
 if __name__ == '__main__':
     # path = r"I:\Max_Mobility_Profiles\quarterly_simulation\quarterly_simulation_80.csv"
