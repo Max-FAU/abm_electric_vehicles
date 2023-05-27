@@ -2,11 +2,12 @@ import math
 
 
 class Transformer:
-    """
-    Class to implement transformers and to calculate the maximum capacity of the transformer.
-    """
     def __init__(self,
                  num_households):
+        """
+        Class to implement transformers and to calculate the maximum capacity of the transformer.
+        :param num_households: Number of agents connected to the transformer
+        """
         self.num_households = num_households  # num_households == num EV Agents
         self.power_household = None
 

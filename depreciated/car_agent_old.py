@@ -68,7 +68,7 @@ class ElectricVehicle(mesa.Agent):
 
     def initialize_car_values(self):
         # load car values from JSON file in directory
-        with open('../car_values.json') as f:
+        with open('../input/car_values.json') as f:
             car_dict = json.load(f)
 
         # retrieve and set car values

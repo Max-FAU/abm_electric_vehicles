@@ -8,8 +8,8 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-27'
-    num_agents = 698
-    model_runs = 30
+    num_agents = 2
+    model_runs = 2
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     df_results = df_concat.groupby(df_concat.index).mean()
     df_results.to_csv("results/results_all_runs.csv", index=False)
 
-    df_results['total_recharge_value'].plot(linewidth=0.5)
+    df_results['total_load'].plot(linewidth=0.5)
     plt.show()
     #
     # agent_data = model.datacollector.get_agent_vars_dataframe()

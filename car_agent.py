@@ -85,7 +85,7 @@ class ElectricVehicle(Agent):
     def load_car_value_dict(self):
         """Opens json file with all values stored for cars."""
         # load car values from JSON file in directory
-        with open('car_values.json') as f:
+        with open('input/car_values.json') as f:
             car_dict = json.load(f)
         self.car_values = car_dict
 
@@ -617,9 +617,11 @@ class ElectricVehicle(Agent):
 
     def interaction_charging_values(self):
         from customer_agent import PowerCustomer
-        customer = PowerCustomer(yearly_cons_household=3500, start_date=self.start_date, end_date=self.end_date)
+        customer = PowerCustomer(yearly_cons_household=3500,
+                                 start_date=self.start_date,
+                                 end_date=self.end_date)
+        customer.initialize_customer()
         customer.set_current_load(self.timestamp)
-        customer.set_current_load_kw()
         self.base_load = customer.get_current_load_kw()
 
         transformer_capacity = self.get_max_transformer_capacity()
@@ -719,7 +721,6 @@ class ElectricVehicle(Agent):
             # it have to be maximum capped at last charging value
             # the rest of charging value that is then used can be distributed to all others
 
-
     def step(self):
         if self.timestamp is None:
             self.timestamp = self.start_date
@@ -773,134 +774,8 @@ class ElectricVehicle(Agent):
         # plug in status
         # pos
 
-class ChargingModel(Model):
-    def __init__(self,
-                 num_agents: int,
-                 start_date: str,
-                 end_date: str):
-
-        self.start_date = start_date
-        self.end_date = end_date
-        self.num_agents = num_agents  # agents are number of EV Agents
-        self.schedule = SimultaneousActivation(self)
-
-        self.list_models = self.generate_cars_according_to_dist()
-        # self.list_models = self.generate_test_cars()
-        num_agents = len(self.list_models)
-
-        from customer_agent import Transformer
-        transformer = Transformer(num_households=num_agents)
-        self.max_capacity = transformer.get_max_capacity()
-
-        i = 0
-        while i < num_agents:
-            car_model = self.list_models[i]
-            try:
-                agent = ElectricVehicle(unique_id=i,
-                                        model=self,
-                                        car_model=car_model,
-                                        start_date=self.start_date,
-                                        end_date=self.end_date,
-                                        target_soc=100,
-                                        max_transformer_capacity=self.max_capacity)
-                self.schedule.add(agent)
-
-            except Exception as e:
-                print("Adding agent to model failed.")
-                print(f"Error Message: {e}")
-
-            print("Added agent number {} to the model.".format(i))
-            i += 1
-
-        self.datacollector = DataCollector(
-            model_reporters={
-                "possible_capacity": lambda m: self.max_capacity,
-                "total_recharge_power": self.get_total_recharge_power,
-                "total_customer_load": self.get_total_customer_load
-            },
-            agent_reporters={
-                "timestamp": lambda a: a.timestamp,
-                "recharge_value": lambda a: a.charging_value,
-                "battery_level": lambda a: a.battery_level,
-                "soc": lambda a: a.soc,
-                "power": lambda a: a.charging_value * 4
-            }
-        )
-
-    def get_total_recharge_power(self):
-        total_charging_power = sum([agent.charging_value * 4 for agent in self.schedule.agents])
-        return total_charging_power
-
-    # TODO THIS DOES NOT WORK FIX
-    def get_total_customer_load(self):
-        total_base_load = sum([agent.base_load for agent in self.schedule.agents])
-        return total_base_load
-
-    def generate_test_cars(self):
-        file_path = 'car_models.txt'
-        car_models = []
-        with open(file_path, 'r') as file:
-            lines = file.readlines()
-            for line in lines:
-                value = line.strip()
-                car_models.append(value)
-        return car_models
-
-    def generate_cars_according_to_dist(self):
-        with open('car_values.json', 'r') as f:
-            data = json.load(f)
-
-        total_cars = 0
-        for name in data.keys():
-            total_cars += data[name]["number"]
-
-        cars = []
-        distribution = []
-        for name in data.keys():
-            cars += [name]
-            distribution += [data[name]["number"] / total_cars]
-
-        car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
-        # print(len(car_names), "car names generated.")
-        np.savetxt('car_models.txt', car_models, fmt='%s', delimiter=' ')
-
-        return car_models
-
-    def step(self):
-        # step through schedule
-        self.schedule.step()
-        self.datacollector.collect(self)
-
-
-if __name__ == '__main__':
-    start_date = '2008-07-11'
-    end_date = '2008-07-18'
-
-    time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
-    num_intervals = int(time_diff / datetime.timedelta(minutes=15))
-
-    model = ChargingModel(num_agents=3,
-                          start_date=start_date,
-                          end_date=end_date)
-
-    for i in range(num_intervals):
-        model.step()
-
-    model_data = model.datacollector.get_model_vars_dataframe()
-    agent_data = model.datacollector.get_agent_vars_dataframe()
-    print(model_data['total_customer_load'])
-    model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
-    # aux.set_print_options()
-    # print(agent_data)
-    import matplotlib.pyplot as plt
-    ax = model_data.plot()
-    # ax.set_ylim(0, 35)
-    plt.show()
-
-
     # input available capacity for charging
     # max capacity - customer household
-
 
 # class ElectricVehicleFlatCharge(ElectricVehicle):
 #     def __init__(self, model, **params):

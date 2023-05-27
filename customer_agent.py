@@ -86,7 +86,7 @@ class PowerCustomer:
 
     def get_current_load_w(self):
         return self.current_load
-    
+
     def get_current_load_kw(self):
         return self.current_load_kw
 

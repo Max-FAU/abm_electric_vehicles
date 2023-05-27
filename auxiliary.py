@@ -9,7 +9,7 @@ DIRECTORY_PATH_TEST = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles
 
 
 def read_json_config(keyword):
-    with open('relevant_columns_config.json', 'r') as config:
+    with open('input/relevant_columns_config.json', 'r') as config:
         columns = json.load(config)
     return columns[keyword]
 
@@ -52,7 +52,7 @@ def median_trip_length(df, car_id) -> dict:
 
 def is_private_car(unique_id: int):
     """Load the json which indicates if the car is a private car."""
-    with open('private_cars.json') as f:
+    with open('input/private_cars.json') as f:
         private_cars = json.load(f)
 
     car_ids = []

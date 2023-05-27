@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 def sort_cars_size():
     # Load the car models
-    with open('car_values.json') as f:
+    with open('input/car_values.json') as f:
         car_dict = json.load(f)
     # sort the model according to their battery capacity to later match them
     # the index represents the rank where 0 is small and 9 is large
@@ -26,8 +26,9 @@ def median_trip_length(df, car_id):
     print('Successfully calculated median trip length for car {}.'.format(car_id))
     return len_dict
 
+
 def is_private_car(unique_id: int):
-    with open('private_cars.json') as f:
+    with open('input/private_cars.json') as f:
         private_cars = json.load(f)
 
     car_ids = []
@@ -38,6 +39,7 @@ def is_private_car(unique_id: int):
         return True
     else:
         return False
+
 
 def label_mobility_data(df, no_deciles: int):
     # drop entries in dataframe without any trip length
