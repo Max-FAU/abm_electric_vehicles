@@ -8,8 +8,8 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-27'
-    num_agents = 2
-    model_runs = 2
+    num_agents = 20
+    model_runs = 1
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
@@ -24,6 +24,7 @@ if __name__ == '__main__':
             model.step()
 
         model_data = model.datacollector.get_model_vars_dataframe()
+        model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
         model_data.to_csv("results/results_model_run_{}.csv".format(i), index=False)
         model_results.append(model_data)
 

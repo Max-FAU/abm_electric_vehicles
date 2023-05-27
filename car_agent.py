@@ -229,7 +229,7 @@ class ElectricVehicle(Agent):
         self.set_car_id(car_id=car_id)
 
         # Load correct mobility file
-        file_path = aux.create_file_path(car_id, test=True)
+        file_path = aux.create_file_path(car_id, test=False)
         self.mobility_data = self.load_mobility_data(file_path)
         print("... mobility data for car {} loaded successfully.".format(self.car_id))
         # self.mobility_data.to_csv("mobility_test_data.csv")
@@ -777,12 +777,63 @@ class ElectricVehicle(Agent):
     # input available capacity for charging
     # max capacity - customer household
 
-# class ElectricVehicleFlatCharge(ElectricVehicle):
-#     def __init__(self, model, **params):
-#         super().__init__(model)
-#         self.max_power = 3.7
-#         self.min_power = 1.22
-
-# TODO implement charging only between 18:00 and 06:00
 # TODO implement charging in flat manner, means calculate the time the car stands
 # TODO divide the charging power by the time the car has to charge
+
+
+class ElectricVehicleFlatCharge(ElectricVehicle):
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
+        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity)
+        self.flat_min_power = 1.22
+        self.flat_max_power = 3.7
+
+    def set_flat_charging(self):
+        # TODO Not only take the current timestep, change the charging value function
+        # TODO to implement in charging function more limits
+        charging_power = self.get_charging_value() * 4
+        charging_duration = self.get_charging_duration()
+
+        flat_power = charging_power / charging_duration
+        if flat_power < self.flat_min_power:
+            flat_power = self.flat_min_power
+
+        if flat_power > self.flat_max_power:
+            flat_power = self.flat_max_power
+
+        print(flat_power)
+
+        
+class ElectricVehicleOffpeak(ElectricVehicle):
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
+        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity)
+        self.start_off_peak = pd.to_datetime('18:00:00')
+        self.end_off_peak = pd.to_datetime('06:00:00')
+        self.off_peak = False
+
+    def set_off_peak(self):
+        timestamp = pd.to_datetime('2008-07-13 18:15:00')
+
+        start = self.start_off_peak.hour
+        end = self.end_off_peak.hour
+
+        # TODO implement that cars can only charge during off_peak
+        if timestamp.hour >= start or timestamp.hour < end:
+            self.off_peak = True
+
+
+
+
+
+if __name__ == '__main__':
+    start_date = '2008-07-13'
+    end_date = '2008-07-27'
+
+    agent = ElectricVehicleOffpeak(unique_id=1,
+                                   model=None,
+                                   car_model='bmw_i3',
+                                   start_date=start_date,
+                                   end_date=end_date,
+                                   target_soc=100,
+                                   max_transformer_capacity=20)
+
+    agent.set_off_peak()
