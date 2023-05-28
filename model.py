@@ -48,7 +48,7 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("Added agent number {} to the model.".format(i))
+            print("...added agent number {} to the model.".format(i))
             i += 1
 
         self.datacollector = mesa.DataCollector(
@@ -98,7 +98,7 @@ class ChargingModel(Model):
             distribution += [data[name]["number"] / total_cars]
 
         car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
-        np.savetxt('car_models.txt', car_models, fmt='%s', delimiter=' ')
+        np.savetxt('results/car_models.txt', car_models, fmt='%s', delimiter=' ')
         # print(len(car_names), "car names generated.")
 
         return car_models

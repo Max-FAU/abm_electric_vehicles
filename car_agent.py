@@ -1,13 +1,11 @@
-from mesa import Agent, Model
+from mesa import Agent
 import json
 import pandas as pd
 import auxiliary as aux
 import random
 import datetime
 from mobility_data import MobilityDataAggregator
-from mesa.time import SimultaneousActivation
-from mesa.datacollection import DataCollector
-import numpy as np
+import dask.dataframe as dd
 
 
 class ElectricVehicle(Agent):
@@ -212,8 +210,29 @@ class ElectricVehicle(Agent):
         self.car_id = car_id
 
     def load_mobility_data(self, file_path) -> pd.DataFrame:
+        # Specify data types of the columns to speed up reading csv files
+        cols = ['TIMESTAMP',
+                'TRIPNUMBER',
+                'DELTAPOS',
+                'CLUSTER',
+                'ECONSUMPTIONKWH',
+                'ID_PANELSESSION',
+                'ID_TERMINAL']
+
+        dtypes = {'TIMESTAMP': str,
+                  'TRIPNUMBER': int,
+                  'DELTAPOS': float,
+                  'CLUSTER': int,
+                  'ECONSUMPTIONKWH': float,
+                  'ID_PANELSESSION': int,
+                  'ID_TERMINAL': int}
+
         # Read only used columns to speed up data reading
-        raw_mobility_data = pd.read_csv(file_path, usecols=['TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTIONKWH', 'ID_PANELSESSION', 'ID_TERMINAL'])
+        raw_mobility_data = dd.read_csv(file_path,
+                                        usecols=cols,
+                                        dtype=dtypes,
+                                        parse_dates=['TIMESTAMP'])
+
         data_aggregator = MobilityDataAggregator(raw_mobility_data=raw_mobility_data,
                                                  start_date=self.start_date,
                                                  end_date=self.end_date)
@@ -231,7 +250,7 @@ class ElectricVehicle(Agent):
         # Load correct mobility file
         file_path = aux.create_file_path(car_id, test=False)
         self.mobility_data = self.load_mobility_data(file_path)
-        print("... mobility data for car {} loaded successfully.".format(self.car_id))
+        print("Adding mobility profile of car {} to agent {} ...".format(self.car_id, self.unique_id))
         # self.mobility_data.to_csv("mobility_test_data.csv")
         # self.mobility_data = self.load_mobility_data('mobility_test_data.csv')
 
@@ -802,7 +821,7 @@ class ElectricVehicleFlatCharge(ElectricVehicle):
 
         print(flat_power)
 
-        
+
 class ElectricVehicleOffpeak(ElectricVehicle):
     def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
         super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity)

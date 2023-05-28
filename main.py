@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
-    end_date = '2008-07-27'
-    num_agents = 20
+    end_date = '2008-07-15'
+    num_agents = 2
     model_runs = 1
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
@@ -35,6 +35,7 @@ if __name__ == '__main__':
     df_results.to_csv("results/results_all_runs.csv", index=False)
 
     df_results['total_load'].plot(linewidth=0.5)
+    df_results['possible_capacity'].plot(linewidth=1)
     plt.show()
     #
     # agent_data = model.datacollector.get_agent_vars_dataframe()
@@ -45,5 +46,5 @@ if __name__ == '__main__':
     # agents_data['recharge_value'].unstack().plot(linewidth=0.5, legend=None)
     # plt.show()
     #
-    # stop = timeit.default_timer()
-    # print('Total Runtime: ', stop - start)
+    stop = timeit.default_timer()
+    print('Total Runtime: ', stop - start)

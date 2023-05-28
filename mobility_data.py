@@ -1,4 +1,5 @@
 import pandas as pd
+import dask.dataframe as dd
 
 
 class MobilityDataAggregator:
@@ -13,11 +14,10 @@ class MobilityDataAggregator:
         self.median_trip_length = None
 
         self.prepare_mobility_data()
-        self.calc_median_trip_len()
+        self.set_median_trip_len()
 
     def _create_df_limited_time(self):
-        self.raw_mobility_data.loc[:, 'TIMESTAMP'] = pd.to_datetime(self.raw_mobility_data['TIMESTAMP'])
-
+        raw_mobility_data = self.get_raw_df()
         raw_start_date = min(self.raw_mobility_data['TIMESTAMP'])
         raw_end_date = max(self.raw_mobility_data['TIMESTAMP'])
 
@@ -26,11 +26,12 @@ class MobilityDataAggregator:
         if raw_end_date < self.end_date:
             print('End date: {} is too late for this data set.'.format(raw_end_date))
 
-        self.df_limited_time = self.raw_mobility_data[(self.raw_mobility_data['TIMESTAMP'] >= self.start_date) &
-                                                      (self.raw_mobility_data['TIMESTAMP'] < self.end_date)]
+        self.df_limited_time = raw_mobility_data.loc[(raw_mobility_data['TIMESTAMP'] >= self.start_date) &
+                                                     (raw_mobility_data['TIMESTAMP'] < self.end_date)].compute()
 
     def _aggregate_15_min_steps(self):
         # calculate the total energy demand in that 15 minutes
+        self.df_limited_time = pd.DataFrame(self.df_limited_time)
         self.df_limited_time.set_index('TIMESTAMP', inplace=True)
 
         # Refactor, columns are already in json relevant columns
@@ -65,7 +66,7 @@ class MobilityDataAggregator:
         self._aggregate_15_min_steps()
         self._data_cleaning()
 
-    def calc_median_trip_len(self):
+    def set_median_trip_len(self):
         trip_df = self.df_processed.groupby('TRIPNUMBER').sum()
         self.median_trip_length = trip_df['DELTAPOS'].median()
 
