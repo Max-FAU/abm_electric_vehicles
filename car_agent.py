@@ -488,12 +488,12 @@ class ElectricVehicle(Agent):
         # Set correct charging power for the car based on cluster
         self.set_charging_power_car()
         charging_power_car = self.get_charging_power_car()
-        charging_value_car = charging_power_car / 4   # kwh
+        charging_value_car = charging_power_car / 4   # kwh  # maybe multiply with efficiency to include here
 
         # Set correct charging power for the station based on cluster
         self.set_charging_power_station()
         charging_power_station = self.get_charging_power_station()
-        charging_value_station = charging_power_station / 4    # kwh
+        charging_value_station = charging_power_station / 4    # kwh # maybe multiply with efficiency to include here
 
         possible_charging_value = min(empty_battery_capacity,
                                       possible_soc_capacity,
