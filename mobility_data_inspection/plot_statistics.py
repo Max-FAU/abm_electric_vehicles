@@ -28,6 +28,7 @@ for entry in list:
 labels = df['label'].unique()
 fig, ax = plt.subplots()
 anzahl_priv = len(df[df['label'] == 'private'])
+print(anzahl_priv)
 anzahl_commercial = len(df[df['label'] == 'commercial'])
 counts = [anzahl_priv, anzahl_commercial]
 plt.bar(labels, counts)
