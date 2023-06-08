@@ -653,22 +653,57 @@ class ElectricVehicle(Agent):
     def get_capacity_to_charge(self):
         return self.capacity_to_charge
 
+    def interaction_charging_values2(self):
+        available_capacity = self.get_capacity_to_charge()
+
+        all_agents = self.model.schedule.agents
+        interaction = InteractionClass(all_agents, available_capacity)
+        interaction.set_specific_agents(ElectricVehicle)
+
+        all_charging_agents = interaction.get_all_charging_agents()
+        all_priorities = interaction.get_all_priorities()
+        different_priorities = set(all_priorities)
+        total_charging_power = interaction.get_total_charging_power()
+
+        if total_charging_power > available_capacity:
+            # Check if all agents have the same priority
+            if len(different_priorities) > 1:
+                print("different prios")
+                highest_priority = max(all_priorities)
+                lowest_priority = min(all_priorities)
+
+                current_charging_power = 0
+                for priority in range(highest_priority, lowest_priority - 1, -1):
+                    interaction.set_priority(priority)
+                    interaction.set_agents_with_charging_priority()
+                    interaction.set_charging_power_per_agent()
+            else:
+                print("all same prio")
+                interaction.set_priority(different_priorities)
+                interaction.set_agents_with_charging_priority()
+                interaction.set_charging_power_per_agent()
+        else:
+            print("next timestamp")
+
+
+
+
+
     def interaction_charging_values(self):
         max_capacity = self.get_capacity_to_charge()
 
-        # This action is done in every step
         all_agents = self.model.schedule.agents
 
-        # Filter to keep only ElectricVehicles (Filter out transformers)
-        car_agents = []
-        for agent in all_agents:
-            if isinstance(agent, ElectricVehicle):
-                car_agents.append(agent)
-
         # Enter the interaction class to reduce interaction charging values method
-        model_interaction = InteractionClass(car_agents)
+        model_interaction = InteractionClass(all_agents, max_capacity)
+        model_interaction.set_specific_agents(ElectricVehicle)
+        model_interaction.set_all_charging_agents()
         all_charging_agents = model_interaction.get_all_charging_agents()
+        model_interaction.set_all_priorities()
         all_priorities = model_interaction.get_all_priorities()
+        model_interaction.set_all_charging_values()
+        model_interaction.set_total_charging_value()
+        model_interaction.set_total_charging_power()
         total_charging_power = model_interaction.get_total_charging_power()
 
         if total_charging_power > max_capacity:
@@ -678,18 +713,23 @@ class ElectricVehicle(Agent):
 
             available_capacity = max_capacity
 
+            # Starting with the highest priority to charge
             for priority in range(highest_priority, lowest_priority - 1, -1):
-                agents_priority = model_interaction.get_agents_with_charging_priority(priority)
+                model_interaction.set_priority(priority)
+                model_interaction.set_agents_with_charging_priority()
+                agents_priority = model_interaction.get_agents_with_charging_priority()
 
                 sub_total_charging_power = 0
 
                 for agent in agents_priority:
-                    charging_power = agent.get_charging_value() * 4  # we need kw
+                    charging_value = agent.get_charging_value()
+                    charging_power = aux.convert_kw_kwh(kwh=charging_value)
                     sub_total_charging_power += charging_power
 
                     if sub_total_charging_power > available_capacity:
-                        charging_power_per_agent = model_interaction.get_charging_power_per_agent(available_capacity, priority)
-                        charging_value_per_agent = charging_power_per_agent / 4
+                        model_interaction.set_charging_power_per_agent()
+                        charging_power_per_agent = model_interaction.get_charging_power_per_agent()
+                        charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
 
                         charging_value_to_distribute = 0
                         agents_exceeding_charging_value = []
@@ -710,19 +750,14 @@ class ElectricVehicle(Agent):
                                 charging_value = charging_value_per_agent + other_agents_increase
                             if charging_value > agent.get_charging_value():
                                 charging_value = min(agent.get_charging_value(), charging_value)
-                                # TODO
-                                # TODO Leave away
-                                # Schauen ob der neue charging value mit der "umlage" größer ist als der
-                                # alte, wenn größer als der alte, dann den alten charging value nehmen
-                                # differenz wieder berechnen und auf die noch nicht processed agents addieren
-                                # wenn der letzte agent dass dann nicht mehr aufnehmen kann, wegfallen lassen.
 
                             agent.set_charging_value(value=charging_value)
                             agent.charge()
 
                         # check if higher priorities were already processed
                         for agent in all_charging_agents:
-                            if agent not in agents_priority and agent not in agents_higher_priority:
+                            if agent not in agents_priority \
+                                    and agent not in agents_higher_priority:
                                 agent.revert_charge()
                                 agent.set_charging_value(value=0)
                                 agent.charge()
@@ -759,9 +794,6 @@ class ElectricVehicle(Agent):
         # Set mobility data for current timestamp
         self.set_data_current_timestamp()
 
-        # Calculate how much capacity is available for charging cars after household base load
-        self.set_capacity_to_charge()
-
         self.calc_new_battery_level()
         self.set_soc()
         self.set_target_soc_reached()
@@ -782,6 +814,8 @@ class ElectricVehicle(Agent):
         current_agent_id = self.get_unique_id()
         # Check if current agent id is the last id in list of ids of scheduled agents then interact
         if all_agents_ids[-1] == current_agent_id:
+            # Calculate how much capacity is available for charging cars after household base load
+            self.set_capacity_to_charge()
             self.interaction_charging_values()
 
         # self.charge()

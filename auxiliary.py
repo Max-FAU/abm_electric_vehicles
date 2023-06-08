@@ -115,7 +115,15 @@ def create_median_trip_length_file(directory_path,
     sorted_dict_df.to_csv(file_name)
 
 
-
+def convert_kw_kwh(kw=None, kwh=None):
+    if kw is not None:
+        kwh = kw / 4  # Convert kW to kWh
+        return kwh
+    elif kwh is not None:
+        kw = kwh * 4  # Convert kWh to kW
+        return kw
+    else:
+        raise ValueError("Either 'kw' or 'kwh' must be provided.")
 
 
 if __name__ == '__main__':

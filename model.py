@@ -119,13 +119,13 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    start_date = '2008-07-11'
-    end_date = '2008-07-18'
+    start_date = '2008-07-17 13:00'
+    end_date = '2008-07-18 17:00'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=3,
+    model = ChargingModel(num_agents=2,
                           start_date=start_date,
                           end_date=end_date)
 
@@ -134,11 +134,19 @@ if __name__ == '__main__':
 
     model_data = model.datacollector.get_model_vars_dataframe()
     agent_data = model.datacollector.get_agent_vars_dataframe()
-    print(model_data['total_customer_load'])
+    # print(model_data['total_customer_load'])
     model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
     # aux.set_print_options()
     # print(agent_data)
     import matplotlib.pyplot as plt
-    ax = model_data.plot()
-    # ax.set_ylim(0, 35)
+
+    x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
+    x_axis_time = x_axis_time[1:]
+    model_data['timestamp'] = x_axis_time
+    ax = model_data.plot(x='timestamp', y=['total_load', 'total_recharge_power', 'total_customer_load', 'possible_capacity'])
+    plt.xlabel('timestamp')
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=90)
+    plt.ylabel('kW')
+    plt.tight_layout()
+    
     plt.show()

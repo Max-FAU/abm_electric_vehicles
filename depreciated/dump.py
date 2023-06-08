@@ -1,137 +1,97 @@
 import mesa
 from mesa import Model
 from mesa.time import RandomActivation
-from customer_agent import ElectricityGridBus
 import pandas as pd
 import datetime
 
 
-def one_customer_base_load(start_date):
-    # file = "h0_profile.csv"
-    df = pd.read_csv(r"W:\abm_electric_vehicles\h0_profile.csv")
-    df = df.drop(columns=['TagNr.', 'Tag'])
+def interaction_charging_values(self):
+    max_capacity = self.get_capacity_to_charge()
 
-    # stack the rows and set the column name as index
-    df_stacked = df.set_index('Datum').stack().reset_index(name='value').rename(columns={'level_1': 'time'})
-    # combine the date and time columns into one datetime column
-    df_stacked['datetime'] = pd.to_datetime(df_stacked['Datum'] + ' ' + df_stacked['time'],
-                                            format='%d.%m.%Y %H:%M') - datetime.timedelta(minutes=15)
-    # drop the original date and time columns
-    df_stacked.drop(['Datum', 'time'], axis=1, inplace=True)
-    # replace the year in h0 profile timestamps to current year
-    relevant_year = pd.Timestamp(start_date).year
-    df_stacked['datetime'] = df_stacked['datetime'].apply(lambda x: x.replace(year=relevant_year))
-    # set the datetime column as index
-    df_stacked.set_index('datetime', inplace=True)
-    print(df_stacked)
-    return df_stacked
+    # This action is done in every step
+    all_agents = self.model.schedule.agents
 
+    # Filter to keep only ElectricVehicles (Filter out transformers)
+    car_agents = []
+    for agent in all_agents:
+        if isinstance(agent, ElectricVehicle):
+            car_agents.append(agent)
 
-# self.adjust_charging_values()
-# # Get all Agents in buffer
-# all_agents = self.model.schedule.agent_buffer(self)
-# car_agents = [agent for agent in all_agents if isinstance(agent, ElectricVehicle)]
-# car_agents_charging_values = [agent.charging_value for agent in car_agents]
-# car_agents_charging_values_total = sum([x for x in car_agents_charging_values if x is not None])
-#
-# max_capacity = 25
-#
-# num_charging_cars = len([value for value in car_agents_charging_values if value is not None and value != 0])
-#
-# if car_agents_charging_values_total > max_capacity:
-#     print("interaction")
-#     exceeding_charging_value = car_agents_charging_values_total - max_capacity
-#     reduction_per_agent = exceeding_charging_value / num_charging_cars
-#
-#     for agent in car_agents:
-#         agent.charging_value = max(0, agent.charging_value - reduction_per_agent)
-#     self.calculate_battery_level(reduced=True)
-# self.calculate_battery_level(reduced=True)
+    # Enter the interaction class to reduce interaction charging values method
+    model_interaction = InteractionClass(car_agents)
+    all_charging_agents = model_interaction.get_all_charging_agents()
+    all_priorities = model_interaction.get_all_priorities()
+    total_charging_power = model_interaction.get_total_charging_power()
 
-# print("Agent with Car ID {}: current charging_value is: {}".format(self.car_id, self.charging_value))
+    if total_charging_power > max_capacity:     # check if total_charging_power is higher than available capacity
+        highest_priority = max(all_priorities)    # get highest priority
+        lowest_priority = min(all_priorities)       # get lowest priority
+        agents_higher_priority = []
 
+        available_capacity = max_capacity       # maximum capacity is available capacity
 
-# def set_plug_in_buffer(self, value: bool):
-#     self.plug_in_buffer = value
-#
-# def set_plugged_in(self, value: bool):
-#     self.plugged_in = value
-#
-# def get_plugged_in(self):
-#     return self.plugged_in
+        # Starting with the highest priority to charge
+        for priority in range(highest_priority, lowest_priority - 1, -1):
+            agents_priority = model_interaction.get_agents_with_charging_priority(priority)  # get all agents having the priority
 
-# def set_plug_in_status(self):
-#     """Function to check the plug in buffer and consumption to set the right plug in status."""
-#     consumption = self.get_consumption()
-#     plug_in_buffer = self.get_plug_in_buffer()
-#     if consumption == 0 and plug_in_buffer == True:
-#         self.set_plug_in_buffer(False)
-#         self.set_plugged_in(False)
-#     if consumption == 0 and plug_in_buffer == False:
-#         self.set_plugged_in(True)
-#     if consumption > 0:
-#         self.set_plugged_in(False)
-#         self.set_plug_in_buffer(True)
+            sub_total_charging_power = 0    # sum up the charging power for these agents
 
-# def set_soc(self):
-#     battery_lvl = self.get_battery_lvl()
-#     battery_capacity = self.get_battey_capacity()
-#     self.soc = battery_lvl / battery_capacity
-#
-# def get_soc(self):
-#     return self.soc
+            for agent in agents_priority:   # for each agent having the priority
+                charging_value = agent.get_charging_value()     # get the charging value
+                charging_power = aux.convert_kw_kwh(kwh=charging_value)  # get the charging power
+                sub_total_charging_power += charging_power  # add the charging power to the sum of this priority
 
-# def set_target_soc_reached(self, value: bool):
-#     self.target_soc_reached = value
+                # this is checked agent after agent
+                if sub_total_charging_power > available_capacity: # check if the sum of the current priority is already higher than max_capacity
+                    # if it is higher, reduce everything in this priority by the same lvl
+                    # for that calculate the available capacity per agents with this priority
+                    charging_power_per_agent = model_interaction.get_charging_power_per_agent(available_capacity,
+                                                                                              priority)
+                    charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)  # convert to kwh
 
-# def set_target_soc_reached(self, target_soc):
-#     soc = self.get_soc()
-#     if soc >= target_soc:
-#         self.set_target_soc_reached(True)
-#     else:
-#         self.set_target_soc_reached(False)
+                    charging_value_to_distribute = 0
+                    agents_exceeding_charging_value = []
+                    num_agents_priority = len(agents_priority)
 
-# def get_target_soc_reached(self):
-#     return self.target_soc_reached
+                    for agent in agents_priority:     # Loop alle agenten mit der Priorität
+                        # check all charging values and check if the charging value is higher than what should be available for him
+                        if agent.get_charging_value() < charging_value_per_agent:   # TODO CHECK THIS
+                            # if the charging_value is smaller than the charging_value per agent
+                            # this is done because not every car has the same charging value??????
+                            charging_value_to_distribute += (charging_value_per_agent - agent.get_charging_value())
+                            # find the agents where the agents are exceeding the charging
+                            agents_exceeding_charging_value.append(agent)
 
-# def set_charging_value(self, value: float):
-#     self.charging_value = value
+                    # Dann müssen andere Agenten erhöht werden
+                    other_agents_increase = charging_value_to_distribute / num_agents_priority
 
-# def main_charging_value(self):
-#     plugged_in = self.get_plugged_in()
-#     target_soc_reached = self.get_target_soc_reached()
-#     if plugged_in == True and target_soc_reached == False:
-#         value = calc_charging_value()
-#         self.set_charging_value(value)
-#     if plugged_in == False:
-#         self.set_charging_value(0)
-#     if plugged_in == True and target_soc_reached == True:
-#         self.set_charging_value(0)
-#
-# def calc_charging_value():
-#     a = empty_battery_capacity()
-#     b = empty_battery_capacity_soc()
-#     c = charging_power
-#     # TODO MAYBE IMPLEMENT HERE CHARGING POWER OF CHARGER TOO
-#     possible_charging_value = min(empty_battery_capacity, possible_soc_capacity, charging_power)
-#     return possible_charging_value
-#
-# def empty_battery_capacity():
-#     return battery_capacity - battery_lvl
-#
-# def empty_battery_capacity_soc():
-#     potential_soc = target_soc - current_soc
-#     possible_charging_value = battery_capacity * potential_soc
-#     return possible_charging_value
+                    for agent in agents_priority:
+                        agent.revert_charge()
+                        if agent in agents_exceeding_charging_value:
+                            charging_value = min(agent.get_charging_value(), charging_value_per_agent)
+                        else:
+                            charging_value = charging_value_per_agent + other_agents_increase
+                        if charging_value > agent.get_charging_value():
+                            charging_value = min(agent.get_charging_value(), charging_value)
 
-# def get_right_charging_power_car():
-#     """Can only charge at home or work."""
-#     if cluster == 1:  # home
-#         get_power_ac
-#     elif cluster == 2:  # work
-#         get_power_dc
-#     else:
-#         charging_power = 0
+                            # Schauen ob der neue charging value mit der "umlage" größer ist als der
+                            # alte, wenn größer als der alte, dann den alten charging value nehmen
+                            # differenz wieder berechnen und auf die noch nicht processed agents addieren
+                            # wenn der letzte agent dass dann nicht mehr aufnehmen kann, wegfallen lassen.
+
+                        agent.set_charging_value(value=charging_value)
+                        agent.charge()
+
+                    # check if higher priorities were already processed
+                    for agent in all_charging_agents:
+                        if agent not in agents_priority and agent not in agents_higher_priority:
+                            agent.revert_charge()
+                            agent.set_charging_value(value=0)
+                            agent.charge()
+                    break
+
+                agents_higher_priority.append(agent)
+            available_capacity -= sub_total_charging_power
 
 def get_right_charging_power_station():
     # TODO Maybe implement these charging values, but with what logic?
