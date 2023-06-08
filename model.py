@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pandas as pd
 from car_agent import ElectricVehicle
-from transformer_agent import Transformer
+from depreciated.transformer_agent import Transformer
 
 import datetime
 
@@ -98,8 +98,8 @@ class ChargingModel(Model):
             distribution += [data[name]["number"] / total_cars]
 
         car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
-        timestamp_now = datetime.datetime.now()
-        np.savetxt('results/car_models_' + str(timestamp_now) + '.txt', car_models, fmt='%s', delimiter=' ')
+        # timestamp_now = datetime.datetime.now()
+        # np.savetxt('results/car_models_' + str(timestamp_now) + '.txt', car_models, fmt='%s', delimiter=' ')
         # print(len(car_names), "car names generated.")
 
         return car_models

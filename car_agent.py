@@ -825,7 +825,7 @@ class ElectricVehicleFlatCharge(ElectricVehicle):
 class ElectricVehicleOffpeak(ElectricVehicle):
     def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
         super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity)
-        self.start_off_peak = pd.to_datetime('18:00:00')
+        self.start_off_peak = pd.to_datetime('22:00:00')
         self.end_off_peak = pd.to_datetime('06:00:00')
         self.off_peak = False
 

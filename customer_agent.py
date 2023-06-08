@@ -35,9 +35,11 @@ class PowerCustomer:
 
         self.standard_load_profile = None  # 1000 kwh yearly
         self.scaled_load_profile = None  # * 3.5
-        # print(sum(self.scaled_load_profile['value']) / 1000 / 4 / 3500)
+
         self.current_load = None  # from base load in W
         self.current_load_kw = None  # in kW
+
+        self.peak_load_kw = None
 
     def set_standard_load_profile(self):
         base_load = pd.read_csv('input/cleaned_h0_profile.csv', parse_dates=['datetime'], index_col=['datetime'])
@@ -64,19 +66,20 @@ class PowerCustomer:
     def get_scaled_load_profile(self):
         return self.scaled_load_profile
 
-    def calc_max_peak_load(self, df_stacked):
+    def calc_peak_load(self):
         """
         This is only for comparison of the peak load of h0 profile.
         According to this study, one household has approximately 1 kW peak load.
         https://www.researchgate.net/publication/323702213_Exploring_the_impact_of_network_tariffs_on_household_electricity_expenditures_using_load_profiles_and_socio-economic_characteristics
         """
-        print(max(df_stacked['value'] * 3.5 / 1000))
-        pass
+        scaled_load = self.get_scaled_load_profile()
+        self.peak_load_kw = max(scaled_load['value'] / 1000)
 
     def initialize_customer(self):
         self.set_standard_load_profile()
         self.set_scale()
         self.set_scaled_load_profile()
+        self.calc_peak_load()
 
     def set_current_load(self, timestamp):
         """Base load for the corresponding timestamp."""
@@ -90,6 +93,9 @@ class PowerCustomer:
     def get_current_load_kw(self):
         return self.current_load_kw
 
+    def get_peak_load_kw(self):
+        return self.peak_load_kw
+
 
 if __name__ == '__main__':
     interval = datetime.timedelta(minutes=15)
@@ -101,9 +107,13 @@ if __name__ == '__main__':
                              start_date=start_date,
                              end_date=end_date)
     customer.initialize_customer()
+    peak = customer.get_peak_load_kw()
 
-    while timestamp <= end_date:
-        customer.set_current_load(timestamp)
-        print(timestamp)
-        print(customer.current_load_kw)
-        timestamp += interval
+    capacity = peak * 100 / 0.9 * 1.2
+
+
+    # while timestamp <= end_date:
+    #     customer.set_current_load(timestamp)
+    #     print(timestamp)
+    #     print(customer.current_load_kw)
+    #     timestamp += interval

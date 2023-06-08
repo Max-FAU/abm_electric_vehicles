@@ -8,7 +8,7 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-15'
-    num_agents = 2
+    num_agents = 10
     model_runs = 1
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
