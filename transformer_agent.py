@@ -25,6 +25,7 @@ class Transformer:
 
     @staticmethod
     def possible_size():
+        # https://www.se.com/us/en/download/document/7400HO9501/
         with open('input/single_phase_transformers.json') as f:
             data = json.load(f)
         return data['kVA']

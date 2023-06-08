@@ -109,8 +109,6 @@ if __name__ == '__main__':
     customer.initialize_customer()
     peak = customer.get_peak_load_kw()
 
-    capacity = peak * 100 / 0.9 * 1.2
-
 
     # while timestamp <= end_date:
     #     customer.set_current_load(timestamp)

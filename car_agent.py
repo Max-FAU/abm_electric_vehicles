@@ -5,6 +5,8 @@ import auxiliary as aux
 import random
 import datetime
 from mobility_data import MobilityDataAggregator
+from interaction import InteractionClass
+from customer_agent import PowerCustomer
 import dask.dataframe as dd
 
 
@@ -68,6 +70,7 @@ class ElectricVehicle(Agent):
         self.charging_priority = None
 
         self.base_load = 0
+        self.capacity_to_charge = None
 
     # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
@@ -182,7 +185,6 @@ class ElectricVehicle(Agent):
                                            no_deciles=no_clusters,
                                            file_name=file_name_median_trip_len)
 
-    # TODO Refactor and split into smaller functions or maybe create a new class
     def create_potential_matches(self, df) -> pd.DataFrame:
         # check all already picked 'car_ids' and filter them out of df
         df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
@@ -192,12 +194,13 @@ class ElectricVehicle(Agent):
             df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
         return df
 
-    # TODO Refactor and split into smaller functions
     def create_final_match(self, df) -> int:
         # Get the closest number in column decile_label to the car_size of the current Agent
         closest_number = min(df['decile_label'], key=lambda x: abs(x - self.car_size))
         # Get a list of indexes where decile_label is equal to closest_number
         matching_indexes = df.index[df['decile_label'] == closest_number].tolist()
+        # Set seed to always chose the same file
+        random.seed(948)
         # Get a random index from the matching indexes
         random_index = random.choice(matching_indexes)
         # find the car id
@@ -259,18 +262,19 @@ class ElectricVehicle(Agent):
         Next trip is not defined by trip number but on leaving a charger and reaching a new charger.
         No public chargers considered here.
         """
-        # Make a copy of the mobility data to avoid modifying the original DataFrame
+        # Create copy of dataframe
         mobility_data = self.mobility_data.copy()
+        # slice the mobility data from current timestamp until rest of mobility data
         df_slice = mobility_data.loc[self.timestamp:]
-        aux.set_print_options()
         block_sum = 0
-        for i in range(len(df_slice)):
-            if df_slice.iloc[i]['CLUSTER'] == 0:
-                block_sum += df_slice.iloc[i]['ECONSUMPTIONKWH']
-            elif block_sum != 0:
-                self.consumption_to_next_charge = block_sum
-                break
-        else:
+        for i in range(len(df_slice)):  # iterate over every entry in the slice
+            if df_slice.iloc[i]['CLUSTER'] == 0:   # check if the 'CLUSTER' is 0
+                block_sum += df_slice.iloc[i]['ECONSUMPTIONKWH']    # Add the ECONSUMPTION to the block_sum if it is 0
+            if df_slice.iloc[i]['CLUSTER'] != 0 and block_sum != 0:    # if the CLUSTER is not 0 check the block_sum, if it holds a value
+                self.consumption_to_next_charge = block_sum     # set the consumption to next charge to block sum
+                break     # break the loop
+
+        if block_sum == 0:
             self.consumption_to_next_charge = 0
 
     def get_consumption_to_next_charge(self):
@@ -343,11 +347,14 @@ class ElectricVehicle(Agent):
         """Return the trip number of the current trip."""
         return self.mobility_data.loc[self.timestamp, 'TRIPNUMBER']
 
-    # TODO Implement that there is no key error for checking for the next trip at the end of the file
     def get_next_trip_id(self) -> int:
         """Return the trip number of the next trip."""
+        max_trip_number = self.get_last_trip_id()
         current_trip = self.get_current_trip_id()
-        return current_trip + 1
+        next_trip = current_trip + 1
+        if next_trip > max_trip_number:
+            next_trip = max_trip_number
+        return next_trip
 
     def get_consumption_of_trips(self) -> pd.DataFrame:
         """Returns a dataframe with consumptions for all trips."""
@@ -582,7 +589,6 @@ class ElectricVehicle(Agent):
         else:
             prio_soc = 1
 
-        # TODO NEXT TRIP NEEDS DOES NOT WORK
         self.set_consumption_to_next_charge()
         consumption_next_trip = self.get_consumption_to_next_charge()
         consumption_next_trip_range_anx = self.get_consumption_with_range_anxiety(consumption_next_trip)
@@ -634,17 +640,21 @@ class ElectricVehicle(Agent):
     def get_max_transformer_capacity(self):
         return self.max_transformer_capacity
 
-    def interaction_charging_values(self):
-        from customer_agent import PowerCustomer
+    def set_capacity_to_charge(self):
         customer = PowerCustomer(yearly_cons_household=3500,
                                  start_date=self.start_date,
                                  end_date=self.end_date)
         customer.initialize_customer()
         customer.set_current_load(self.timestamp)
         self.base_load = customer.get_current_load_kw()
-
         transformer_capacity = self.get_max_transformer_capacity()
-        max_capacity = transformer_capacity - self.base_load * len(ElectricVehicle.picked_mobility_data)
+        self.capacity_to_charge = transformer_capacity - self.base_load * len(ElectricVehicle.picked_mobility_data)
+
+    def get_capacity_to_charge(self):
+        return self.capacity_to_charge
+
+    def interaction_charging_values(self):
+        max_capacity = self.get_capacity_to_charge()
 
         # This action is done in every step
         all_agents = self.model.schedule.agents
@@ -655,8 +665,7 @@ class ElectricVehicle(Agent):
             if isinstance(agent, ElectricVehicle):
                 car_agents.append(agent)
 
-        from interaction import InteractionClass
-
+        # Enter the interaction class to reduce interaction charging values method
         model_interaction = InteractionClass(car_agents)
         all_charging_agents = model_interaction.get_all_charging_agents()
         all_priorities = model_interaction.get_all_priorities()
@@ -747,7 +756,11 @@ class ElectricVehicle(Agent):
             # Each step add 15 minutes
             self.timestamp += datetime.timedelta(minutes=15)
 
+        # Set mobility data for current timestamp
         self.set_data_current_timestamp()
+
+        # Calculate how much capacity is available for charging cars after household base load
+        self.set_capacity_to_charge()
 
         self.calc_new_battery_level()
         self.set_soc()
@@ -819,7 +832,7 @@ class ElectricVehicleFlatCharge(ElectricVehicle):
         if flat_power > self.flat_max_power:
             flat_power = self.flat_max_power
 
-        print(flat_power)
+        # print(flat_power)
 
 
 class ElectricVehicleOffpeak(ElectricVehicle):
@@ -847,12 +860,12 @@ if __name__ == '__main__':
     start_date = '2008-07-13'
     end_date = '2008-07-27'
 
-    agent = ElectricVehicleOffpeak(unique_id=1,
-                                   model=None,
-                                   car_model='bmw_i3',
-                                   start_date=start_date,
-                                   end_date=end_date,
-                                   target_soc=100,
-                                   max_transformer_capacity=20)
+    agent = ElectricVehicle(unique_id=1,
+                            model=None,
+                            car_model='bmw_i3',
+                            start_date=start_date,
+                            end_date=end_date,
+                            target_soc=100,
+                            max_transformer_capacity=20)
 
-    agent.set_off_peak()
+    agent.set_consumption_to_next_charge()

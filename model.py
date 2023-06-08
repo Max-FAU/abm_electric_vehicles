@@ -4,7 +4,8 @@ import json
 import numpy as np
 import pandas as pd
 from car_agent import ElectricVehicle
-from depreciated.transformer_agent import Transformer
+from transformer_agent import Transformer
+from customer_agent import PowerCustomer
 
 import datetime
 
@@ -27,9 +28,16 @@ class ChargingModel(Model):
         self.list_models = self.generate_cars_according_to_dist()
         # self.list_models = self.generate_test_cars()
 
-        transformer = Transformer(num_households=num_agents)
+        # Generate one power customer with 3500 kwh yearly consumption
+        customer = PowerCustomer(yearly_cons_household=3500, start_date=start_date, end_date=end_date)
+        customer.initialize_customer()
+        # return the peak load of one customer
+        peak_load = customer.get_peak_load_kw()
+
+        # Size the transformer according to peak load
+        transformer = Transformer(num_households=num_agents, peak_load=peak_load)
         transformer.initialize_transformer()
-        self.max_capacity = transformer.get_max_capacity()
+        self.max_capacity = transformer.get_capacity_kw()
 
         i = 0
         while i < len(self.list_models):
