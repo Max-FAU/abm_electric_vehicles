@@ -12,19 +12,25 @@ import dask.dataframe as dd
 
 class ElectricVehicle(Agent):
     # Only the valid models below are implemented yet
-    valid_models = ['bmw_i3', 'renault_zoe', 'tesla_model_3', 'vw_up', 'vw_id3', 'smart_fortwo', 'hyundai_kona', 'fiat_500', 'vw_golf', 'vw_id4_id5']
+    valid_models = ['bmw_i3', 'renault_zoe', 'tesla_model_3', 'vw_up',
+                    'vw_id3', 'smart_fortwo', 'hyundai_kona', 'fiat_500',
+                    'vw_golf', 'vw_id4_id5']
     # Track already assigned mobility profiles
     picked_mobility_data = []
 
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
+    def __init__(self, unique_id, model, car_model, start_date, end_date,
+                 target_soc, max_transformer_capacity, power_customer):
+
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
         self.unique_id = unique_id
-        assert car_model in ElectricVehicle.valid_models, f"Invalid car model: '{car_model}'. Must be one of: {', '.join(ElectricVehicle.valid_models)}"
+        assert car_model in ElectricVehicle.valid_models, f"Invalid car model: '{car_model}'. Must be one of: " \
+                                                          f"{', '.join(ElectricVehicle.valid_models)}"
         self.car_model = car_model
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
         self.target_soc = target_soc
+        self.power_customer = power_customer
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -72,7 +78,6 @@ class ElectricVehicle(Agent):
         self.base_load = 0
         self.capacity_to_charge = None
 
-    # TODO REFACTOR GETTER AND SETTER IN PYTHONIC WAY
     @property
     def timestamp(self):
         """Function to get the current timestamp."""
@@ -160,9 +165,9 @@ class ElectricVehicle(Agent):
 
     def load_matching_df(self) -> pd.DataFrame:
         """
-        Load the csv file having the matching between median trip length in the mobility file with the battery size of the car.
-        Small cars get matched with mobility files having, based on median trip length, shorter trips for the time period
-        of the Simulation.
+        Load the csv file having the matching between median trip length in the mobility file with the battery size
+        of the car. Small cars get matched with mobility files having, based on median trip length,
+        shorter trips for the time period of the Simulation.
         """
         # this file generated with one time run in match_cars_mobility.py
         file_name_median_trip_len = 'median_trip_length.csv'
@@ -185,7 +190,8 @@ class ElectricVehicle(Agent):
                                            no_deciles=no_clusters,
                                            file_name=file_name_median_trip_len)
 
-    def create_potential_matches(self, df) -> pd.DataFrame:
+    @staticmethod
+    def create_potential_matches(df) -> pd.DataFrame:
         # check all already picked 'car_ids' and filter them out of df
         df = df.loc[~df['car_id'].isin(ElectricVehicle.picked_mobility_data)]
         # if the dataframe is empty clean the picked cars and start again / mobility data can be picked twice
@@ -246,7 +252,7 @@ class ElectricVehicle(Agent):
         """Function to assign the correct mobility file to a car and load it afterwards."""
         # Load a matching file, it will be generated and then loaded, if not existing
         df = self.load_matching_df()
-        df = self.create_potential_matches(df)
+        df = ElectricVehicle.create_potential_matches(df)
         car_id = self.create_final_match(df)
         self.set_car_id(car_id=car_id)
 
@@ -269,12 +275,15 @@ class ElectricVehicle(Agent):
         block_sum = 0
         for i in range(len(df_slice)):  # iterate over every entry in the slice
             if df_slice.iloc[i]['CLUSTER'] == 0:   # check if the 'CLUSTER' is 0
-                block_sum += df_slice.iloc[i]['ECONSUMPTIONKWH']    # Add the ECONSUMPTION to the block_sum if it is 0
-            if df_slice.iloc[i]['CLUSTER'] != 0 and block_sum != 0:    # if the CLUSTER is not 0 check the block_sum, if it holds a value
-                self.consumption_to_next_charge = block_sum     # set the consumption to next charge to block sum
+                # Add the 'ECONSUMPTION' to the block_sum if it is 0
+                block_sum += df_slice.iloc[i]['ECONSUMPTIONKWH']
+            # if the CLUSTER is not 0 check the block_sum, if it holds a value
+            if df_slice.iloc[i]['CLUSTER'] != 0 and block_sum != 0:
+                # set the consumption to next charge to block sum
+                self.consumption_to_next_charge = block_sum
                 break     # break the loop
 
-        if block_sum == 0:
+        else:   # if none of the condition in the loop is met
             self.consumption_to_next_charge = 0
 
     def get_consumption_to_next_charge(self):
@@ -495,12 +504,12 @@ class ElectricVehicle(Agent):
         # Set correct charging power for the car based on cluster
         self.set_charging_power_car()
         charging_power_car = self.get_charging_power_car()
-        charging_value_car = charging_power_car / 4   # kwh  # maybe multiply with efficiency to include here
+        charging_value_car = aux.convert_kw_kwh(kw=charging_power_car)
 
         # Set correct charging power for the station based on cluster
         self.set_charging_power_station()
         charging_power_station = self.get_charging_power_station()
-        charging_value_station = charging_power_station / 4    # kwh # maybe multiply with efficiency to include here
+        charging_value_station = aux.convert_kw_kwh(kw=charging_power_station)
 
         possible_charging_value = min(empty_battery_capacity,
                                       possible_soc_capacity,
@@ -511,7 +520,7 @@ class ElectricVehicle(Agent):
 
     def set_charging_power(self):
         charging_value = self.get_charging_value()
-        self.charging_power = charging_value * 4   # to get kW
+        self.charging_power = aux.convert_kw_kwh(kwh=charging_value)
 
     # TODO efficiency to 100 digits
     # grid value will be the same // grid load is the wrong name for it
@@ -640,14 +649,15 @@ class ElectricVehicle(Agent):
     def get_max_transformer_capacity(self):
         return self.max_transformer_capacity
 
+    def get_power_customer(self):
+        return self.power_customer
+
     def set_capacity_to_charge(self):
-        customer = PowerCustomer(yearly_cons_household=3500,
-                                 start_date=self.start_date,
-                                 end_date=self.end_date)
-        customer.initialize_customer()
+        customer = self.get_power_customer()
         customer.set_current_load(self.timestamp)
         self.base_load = customer.get_current_load_kw()
         transformer_capacity = self.get_max_transformer_capacity()
+        # Calculate the total capacity that is available for charging
         self.capacity_to_charge = transformer_capacity - self.base_load * len(ElectricVehicle.picked_mobility_data)
 
     def get_capacity_to_charge(self):
@@ -659,6 +669,7 @@ class ElectricVehicle(Agent):
         all_agents = self.model.schedule.agents
         interaction = InteractionClass(all_agents, available_capacity)
         interaction.set_specific_agents(ElectricVehicle)
+        interaction.initialize()
 
         all_charging_agents = interaction.get_all_charging_agents()
         all_priorities = interaction.get_all_priorities()
@@ -677,17 +688,19 @@ class ElectricVehicle(Agent):
                     interaction.set_priority(priority)
                     interaction.set_agents_with_charging_priority()
                     interaction.set_charging_power_per_agent()
+
+                    interaction.adjust_charging_values()
+
             else:
                 print("all same prio")
                 interaction.set_priority(different_priorities)
                 interaction.set_agents_with_charging_priority()
                 interaction.set_charging_power_per_agent()
+
+                interaction.adjust_charging_values()
+
         else:
             print("next timestamp")
-
-
-
-
 
     def interaction_charging_values(self):
         max_capacity = self.get_capacity_to_charge()
@@ -843,48 +856,7 @@ class ElectricVehicle(Agent):
     # input available capacity for charging
     # max capacity - customer household
 
-# TODO implement charging in flat manner, means calculate the time the car stands
-# TODO divide the charging power by the time the car has to charge
 
-
-class ElectricVehicleFlatCharge(ElectricVehicle):
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
-        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity)
-        self.flat_min_power = 1.22
-        self.flat_max_power = 3.7
-
-    def set_flat_charging(self):
-        # TODO Not only take the current timestep, change the charging value function
-        # TODO to implement in charging function more limits
-        charging_power = self.get_charging_value() * 4
-        charging_duration = self.get_charging_duration()
-
-        flat_power = charging_power / charging_duration
-        if flat_power < self.flat_min_power:
-            flat_power = self.flat_min_power
-
-        if flat_power > self.flat_max_power:
-            flat_power = self.flat_max_power
-
-        # print(flat_power)
-
-
-class ElectricVehicleOffpeak(ElectricVehicle):
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity):
-        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, max_transformer_capacity)
-        self.start_off_peak = pd.to_datetime('22:00:00')
-        self.end_off_peak = pd.to_datetime('06:00:00')
-        self.off_peak = False
-
-    def set_off_peak(self):
-        timestamp = pd.to_datetime('2008-07-13 18:15:00')
-
-        start = self.start_off_peak.hour
-        end = self.end_off_peak.hour
-
-        # TODO implement that cars can only charge during off_peak
-        if timestamp.hour >= start or timestamp.hour < end:
-            self.off_peak = True
 
 
 
@@ -893,6 +865,9 @@ class ElectricVehicleOffpeak(ElectricVehicle):
 if __name__ == '__main__':
     start_date = '2008-07-13'
     end_date = '2008-07-27'
+    customer = PowerCustomer(3500,
+                             start_date,
+                             end_date)
 
     agent = ElectricVehicle(unique_id=1,
                             model=None,
@@ -900,6 +875,8 @@ if __name__ == '__main__':
                             start_date=start_date,
                             end_date=end_date,
                             target_soc=100,
-                            max_transformer_capacity=20)
+                            max_transformer_capacity=20,
+                            power_customer=customer)
 
+    # TODO überprüfen
     agent.set_consumption_to_next_charge()

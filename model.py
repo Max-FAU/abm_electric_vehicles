@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pandas as pd
 from car_agent import ElectricVehicle
+from car_agent_off_peak import ElectricVehicleOffpeak
 from transformer_agent import Transformer
 from customer_agent import PowerCustomer
 
@@ -20,7 +21,6 @@ class ChargingModel(Model):
         """
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
-        self.timestamp = None
 
         self.schedule = mesa.time.SimultaneousActivation(self)
         assert num_agents <= 698, "Only 698 agents are possible"
@@ -29,13 +29,16 @@ class ChargingModel(Model):
         # self.list_models = self.generate_test_cars()
 
         # Generate one power customer with 3500 kwh yearly consumption
-        customer = PowerCustomer(yearly_cons_household=3500, start_date=start_date, end_date=end_date)
+        customer = PowerCustomer(yearly_cons_household=3500,
+                                 start_date=start_date,
+                                 end_date=end_date)
         customer.initialize_customer()
         # return the peak load of one customer
         peak_load = customer.get_peak_load_kw()
 
         # Size the transformer according to peak load
-        transformer = Transformer(num_households=num_agents, peak_load=peak_load)
+        transformer = Transformer(num_households=num_agents,
+                                  peak_load=peak_load)
         transformer.initialize_transformer()
         self.max_capacity = transformer.get_capacity_kw()
 
@@ -43,13 +46,14 @@ class ChargingModel(Model):
         while i < len(self.list_models):
             car_model = self.list_models[i]
             try:
-                agent = ElectricVehicle(unique_id=i,
-                                        model=self,
-                                        car_model=car_model,
-                                        start_date=self.start_date,
-                                        end_date=self.end_date,
-                                        target_soc=100,
-                                        max_transformer_capacity=self.max_capacity)
+                agent = ElectricVehicleOffpeak(unique_id=i,
+                                               model=self,
+                                               car_model=car_model,
+                                               start_date=self.start_date,
+                                               end_date=self.end_date,
+                                               target_soc=100,
+                                               max_transformer_capacity=self.max_capacity,
+                                               power_customer=customer)
 
                 self.schedule.add(agent)
             except Exception as e:
@@ -105,6 +109,7 @@ class ChargingModel(Model):
             cars += [name]
             distribution += [data[name]["number"] / total_cars]
 
+        np.random.seed(942)
         car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
         # timestamp_now = datetime.datetime.now()
         # np.savetxt('results/car_models_' + str(timestamp_now) + '.txt', car_models, fmt='%s', delimiter=' ')
@@ -119,13 +124,13 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    start_date = '2008-07-17 13:00'
-    end_date = '2008-07-18 17:00'
+    start_date = '2008-07-13'
+    end_date = '2008-07-20'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=2,
+    model = ChargingModel(num_agents=10,
                           start_date=start_date,
                           end_date=end_date)
 
@@ -148,5 +153,5 @@ if __name__ == '__main__':
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=90)
     plt.ylabel('kW')
     plt.tight_layout()
-    
+
     plt.show()

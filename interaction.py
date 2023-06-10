@@ -23,6 +23,7 @@ class InteractionClass:
 
         self.processed_agents = []
         self.additional_charging_power = 0
+        self.left_over = []
 
     def get_all_agents(self):
         return self.all_agents
@@ -130,22 +131,42 @@ class InteractionClass:
                 self.available_capacity -= charging_power
                 self.add_processed_agents(agent)
 
-    def stop(self):
-        # Welche Agenten wurden noch nicht angeschaut
-        # wie viel Kapazität ist noch übrig
-        # Können noch andere Agenten geladen werden?
+    def distribute_rest_capacity(self):
         processed = self.processed_agents
         agents_with_priority = self.get_agents_with_charging_priority()
 
-        left_over = [x for x in processed if x not in agents_with_priority]
+        self.left_over = [x for x in agents_with_priority if x not in processed]
 
         self.available_capacity = self.available_capacity + self.additional_charging_power
+        # Calc new charging values
+        self.charging_power_per_agent = self.available_capacity / len(self.left_over)
 
-    def stop(self):
-        # muss checken ob all agents geprocessed wurden, wenn ja, dann nächster zeitschritt
-        pass
+    def compare_again(self):
+        processed = self.processed_agents
+        agents_with_priority = self.get_agents_with_charging_priority()
+        charging_power_per_agent = self.get_charging_power_per_agent()
+
+        self.left_over = [x for x in agents_with_priority if x not in processed]
+
+        for agent in self.left_over:
+            charging_value = agent.get_charging_value()
+            charging_power = aux.convert_kw_kwh(kwh=charging_value)
+
+            if charging_power_per_agent >= charging_power:
+                self.additional_charging_power += charging_power_per_agent - charging_power
+                self.available_capacity -= charging_power
+                self.add_processed_agents(agent)
+
+    def adjust_charging_values(self):
+        while len(self.left_over) > 0:
+            self.compare_charging_power()
+            self.distribute_rest_capacity()
+            self.compare_again()
+
 
     def initialize(self):
         self.set_all_priorities()
         self.set_all_charging_agents()
         self.set_all_charging_values()
+        self.set_total_charging_value()
+        self.set_total_charging_power()
