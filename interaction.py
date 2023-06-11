@@ -3,22 +3,21 @@ import auxiliary as aux
 
 class InteractionClass:
     def __init__(self,
-                 all_agents,
-                 available_capacity):
+                 all_agents):
 
         self.all_agents = all_agents
-        self.available_capacity = available_capacity
+        # self.transformer_capacity = transformer_capacity
 
-        self.specific_agents = None
-        self.all_priorities = None
+        self.specific_agents = []
+        self.all_priorities = []
 
-        self.car_agents_charging = None
-        self.car_agents_charging_values = None
-        self.total_charging_value = None
+        self.car_agents_charging = []
+        self.car_agents_charging_values = []
+        self.total_charging_value = 0
         self.total_charging_power = None
 
         self.priority = None
-        self.agents_with_priority = None
+        self.agents_with_priority = []
         self.charging_power_per_agent = None
 
         self.processed_agents = []
@@ -37,14 +36,12 @@ class InteractionClass:
     def set_specific_agents(self, agent_class):
         all_agents = self.get_all_agents()
         # Filter to keep only ElectricVehicles (Filter out transformers)
-        self.specific_agents = []
         for agent in all_agents:
             if isinstance(agent, agent_class):
                 self.specific_agents.append(agent)
 
     def set_all_priorities(self):
         all_agents = self.get_specific_agents()
-        self.all_priorities = []
         for agent in all_agents:
             self.all_priorities.append(agent.get_charging_priority())
 
@@ -53,7 +50,6 @@ class InteractionClass:
 
     def set_all_charging_agents(self):
         car_agents = self.get_specific_agents()
-        self.car_agents_charging = []
         for agent in car_agents:
             if agent.get_charging_value() > 0:
                 self.car_agents_charging.append(agent)
@@ -64,9 +60,9 @@ class InteractionClass:
     def set_all_charging_values(self):
         car_agents_charging = self.get_all_charging_agents()
         # get all charging values of all agents
-        self.car_agents_charging_values = []
         for agent in car_agents_charging:
-            self.car_agents_charging_values.append(agent.get_charging_value())
+            if agent.get_charging_value() > 0:
+                self.car_agents_charging_values.append(agent.get_charging_value())
 
     def get_all_charging_values(self):
         return self.car_agents_charging_values
@@ -74,7 +70,6 @@ class InteractionClass:
     def set_total_charging_value(self):
         car_agents_charging_values = self.get_all_charging_values()
         # calculate the total charging values of all car agents in the model
-        self.total_charging_value = 0
         for value in car_agents_charging_values:
             if value is not None:
                 self.total_charging_value += value
@@ -99,7 +94,6 @@ class InteractionClass:
     def set_agents_with_charging_priority(self):
         charging_agents = self.get_all_charging_agents()
         priority = self.get_priority()
-        self.agents_with_priority = []
         for agent in charging_agents:
             if agent.get_charging_priority() == priority:
                 self.agents_with_priority.append(agent)
@@ -162,7 +156,6 @@ class InteractionClass:
             self.compare_charging_power()
             self.distribute_rest_capacity()
             self.compare_again()
-
 
     def initialize(self):
         self.set_all_priorities()

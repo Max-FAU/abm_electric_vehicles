@@ -1,9 +1,12 @@
 import json
 from customer_agent import PowerCustomer
+from mesa import Agent
 
 
-class Transformer:
+class Transformer(Agent):
     def __init__(self,
+                 unique_id,
+                 model,
                  num_households,
                  peak_load,
                  f_safety=1.2,
@@ -12,16 +15,23 @@ class Transformer:
         Class to implement transformers and to calculate the maximum capacity of the transformer.
         :param num_households: Number of agents connected to the transformer
         """
+        super().__init__(unique_id, model)
+        self.type = 'Transformer'
+        self.unique_id = unique_id
+
         self.num_households = num_households  # num_households == num EV Agents
         self.peak_load = peak_load
         self.f_safety = f_safety
         self.power_factor = power_factor
+
+        self._timestamp = None
 
         self.total_peak_load = None
         self.p_over = None
         self.capacity_kva_interim = None
         self.capacity_kva = None
         self.capacity_kw = None
+        self.initialize_transformer()
 
     @staticmethod
     def possible_size():
@@ -82,6 +92,13 @@ class Transformer:
         self.set_capacity_kva_interim()
         self.set_capacity_kva()
         self.set_capacity_kw()
+
+    def get_unique_id(self):
+        return self.unique_id
+
+    def step(self):
+        # No actions performed by transformer at the moment
+        pass
 
 
 if __name__ == '__main__':

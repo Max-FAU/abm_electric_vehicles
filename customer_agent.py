@@ -1,7 +1,7 @@
 import datetime
 import pandas as pd
 import dask.dataframe as dd
-
+from mesa import Agent
 
 def create_cleaned_h0_profile(self):
     df = dd.read_csv("input/h0_profile.csv")
@@ -23,13 +23,21 @@ def create_cleaned_h0_profile(self):
     df_stacked.to_csv('cleaned_h0_profile.csv')
 
 
-class PowerCustomer:
+class PowerCustomer(Agent):
     def __init__(self,
+                 unique_id,
+                 model,
                  yearly_cons_household,
                  start_date: str,
                  end_date: str):
+
+        super().__init__(unique_id, model)
+        self.type = 'Customer'
+        self.unique_id = unique_id
+
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
+        self._timestamp = None
         self.yearly_cons_household = yearly_cons_household
         self.scale = None
 
@@ -40,6 +48,19 @@ class PowerCustomer:
         self.current_load_kw = None  # in kW
 
         self.peak_load_kw = None
+
+        # Generate one power customer with 3500 kwh yearly consumption
+        self.initialize_customer()
+
+    @property
+    def timestamp(self):
+        """Function to get the current timestamp."""
+        return self._timestamp
+
+    @timestamp.setter
+    def timestamp(self, current_timestamp):
+        """Function to set the timestamp of the Agent to the input timestamp."""
+        self._timestamp = current_timestamp
 
     def set_standard_load_profile(self):
         base_load = pd.read_csv('input/cleaned_h0_profile.csv', parse_dates=['datetime'], index_col=['datetime'])
@@ -81,11 +102,12 @@ class PowerCustomer:
         self.set_scaled_load_profile()
         self.calc_peak_load()
 
-    def set_current_load(self, timestamp):
+    def set_current_load(self):
         """Base load for the corresponding timestamp."""
+        current_timestamp = self.timestamp
         scaled_load_profile = self.get_scaled_load_profile()
-        self.current_load = scaled_load_profile.loc[timestamp, 'value']
-        self.current_load_kw = scaled_load_profile.loc[timestamp, 'value'] / 1000
+        self.current_load = scaled_load_profile.loc[current_timestamp, 'value']
+        self.current_load_kw = scaled_load_profile.loc[current_timestamp, 'value'] / 1000
 
     def get_current_load_w(self):
         return self.current_load
@@ -95,6 +117,18 @@ class PowerCustomer:
 
     def get_peak_load_kw(self):
         return self.peak_load_kw
+
+    def get_unique_id(self):
+        return self.unique_id
+
+    def step(self):
+        if self.timestamp is None:
+            self.timestamp = self.start_date
+        else:
+            # Each step add 15 minutes
+            self.timestamp += datetime.timedelta(minutes=15)
+
+        self.set_current_load()
 
 
 if __name__ == '__main__':

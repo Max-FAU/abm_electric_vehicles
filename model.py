@@ -7,6 +7,7 @@ from car_agent import ElectricVehicle
 from car_agent_off_peak import ElectricVehicleOffpeak
 from transformer_agent import Transformer
 from customer_agent import PowerCustomer
+import auxiliary as aux
 
 import datetime
 
@@ -19,6 +20,8 @@ class ChargingModel(Model):
         :start_date: min date
         :end_date: max date
         """
+        super().__init__()
+
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
 
@@ -28,34 +31,45 @@ class ChargingModel(Model):
         self.list_models = self.generate_cars_according_to_dist()
         # self.list_models = self.generate_test_cars()
 
-        # Generate one power customer with 3500 kwh yearly consumption
-        customer = PowerCustomer(yearly_cons_household=3500,
-                                 start_date=start_date,
-                                 end_date=end_date)
-        customer.initialize_customer()
-        # return the peak load of one customer
-        peak_load = customer.get_peak_load_kw()
+        # Return the peak load of one customer, is not added to the scheduler
+        transformer_sizing = PowerCustomer(unique_id=None,
+                                           model=None,
+                                           yearly_cons_household=3500,
+                                           start_date=self.start_date,
+                                           end_date=self.end_date)
 
-        # Size the transformer according to peak load
-        transformer = Transformer(num_households=num_agents,
+        transformer_sizing.initialize_customer()
+        peak_load = transformer_sizing.get_peak_load_kw()
+
+        # Size the transformer according to peak load and add to scheduler
+        transformer = Transformer(unique_id=9999,
+                                  model=self,
+                                  num_households=num_agents,
                                   peak_load=peak_load)
-        transformer.initialize_transformer()
-        self.max_capacity = transformer.get_capacity_kw()
+
+        self.schedule.add(transformer)
 
         i = 0
-        while i < len(self.list_models):
+        while i < self.num_agents:
             car_model = self.list_models[i]
             try:
-                agent = ElectricVehicleOffpeak(unique_id=i,
-                                               model=self,
-                                               car_model=car_model,
-                                               start_date=self.start_date,
-                                               end_date=self.end_date,
-                                               target_soc=100,
-                                               max_transformer_capacity=self.max_capacity,
-                                               power_customer=customer)
+                # Add Electric Vehicles to the scheduler
+                car = ElectricVehicle(unique_id=i,
+                                      model=self,
+                                      car_model=car_model,
+                                      start_date=self.start_date,
+                                      end_date=self.end_date,
+                                      target_soc=100)
 
-                self.schedule.add(agent)
+                # Add Power Customers to the scheduler
+                customer = PowerCustomer(unique_id=i + self.num_agents,
+                                         model=self,
+                                         yearly_cons_household=3500,
+                                         start_date=start_date,
+                                         end_date=end_date)
+
+                self.schedule.add(customer)
+                self.schedule.add(car)
             except Exception as e:
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
@@ -65,25 +79,65 @@ class ChargingModel(Model):
 
         self.datacollector = mesa.DataCollector(
             model_reporters={
-                "possible_capacity": lambda m: self.max_capacity,
-                "total_recharge_power": self.get_total_recharge_power,
-                "total_customer_load": self.get_total_customer_load
+                'total_recharge_power': self.calc_total_recharge_power,
+                'total_customer_load': self.calc_total_customer_load,
+                'transformer_capacity': self.calc_transformer_capacity
             },
             agent_reporters={
-                "timestamp": lambda a: a.timestamp,
-                "recharge_value": lambda a: a.charging_value,
-                "battery_level": lambda a: a.battery_level,
-                "soc": lambda a: a.soc
+                "car_data": lambda agent: self.agent_reporter_car(agent) if agent.type == 'Car' else {},
+                "customer_data": lambda agent: self.agent_reporter_customer(
+                    agent) if agent.type == 'Customer' else {}
             }
         )
 
-    def get_total_recharge_power(self):
-        total_charging_power = sum([agent.charging_value * 4 for agent in self.schedule.agents])
-        return total_charging_power
+    def agent_reporter_car(self, agent):
+        return {
+            "timestamp": agent.timestamp,
+            "recharge_value": agent.charging_value,
+            "battery_level": agent.battery_level,
+            "soc": agent.soc,
+            "charging_priority": agent.charging_priority,
+            "plugged_in": agent.plugged_in,
+            "battery_capacity": agent.battery_capacity,
+            "trip_number": agent.trip_number,
+            "deltapos": agent.deltapos,
+            "cluster": agent.cluster,
+            "consumption": agent.consumption,
+            "panel_session": agent.panel_session,
+            "terminal": agent.terminal,
+            "plug_in_buffer": agent.plug_in_buffer,
+            "target_soc_reached": agent.target_soc_reached,
+            "charging_power_car": agent.charging_power_car,
+            "charging_power_station": agent.charging_power_station
+        }
 
-    def get_total_customer_load(self):
-        total_base_load = sum([agent.base_load for agent in self.schedule.agents])
-        return total_base_load * self.num_agents
+    def agent_reporter_customer(self, agent):
+        return {
+            "timestamp": agent.timestamp,
+            "consumption": agent.current_load_kw
+        }
+
+    def calc_total_recharge_power(self):
+        total_recharge_value = 0
+        for agent in self.schedule.agents:
+            if isinstance(agent, ElectricVehicle):
+                total_recharge_value += agent.charging_value
+        total_recharge_power = aux.convert_kw_kwh(kwh=total_recharge_value)
+        return total_recharge_power
+
+    def calc_total_customer_load(self):
+        total_customer_load = 0
+        for agent in self.schedule.agents:
+            if isinstance(agent, PowerCustomer):
+                total_customer_load += agent.current_load_kw
+        return total_customer_load
+
+    def calc_transformer_capacity(self):
+        capacity_kw = 0
+        for agent in self.schedule.agents:
+            if isinstance(agent, Transformer):
+                capacity_kw += agent.capacity_kw
+        return capacity_kw
 
     def generate_test_cars(self):
         file_path = 'car_models.txt'
@@ -124,13 +178,13 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    start_date = '2008-07-13'
-    end_date = '2008-07-20'
+    start_date = '2008-07-13 15:00:00'
+    end_date = '2008-07-14 00:00:00'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=10,
+    model = ChargingModel(num_agents=2,
                           start_date=start_date,
                           end_date=end_date)
 
@@ -139,6 +193,7 @@ if __name__ == '__main__':
 
     model_data = model.datacollector.get_model_vars_dataframe()
     agent_data = model.datacollector.get_agent_vars_dataframe()
+
     # print(model_data['total_customer_load'])
     model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
     # aux.set_print_options()
@@ -148,10 +203,16 @@ if __name__ == '__main__':
     x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
     x_axis_time = x_axis_time[1:]
     model_data['timestamp'] = x_axis_time
-    ax = model_data.plot(x='timestamp', y=['total_load', 'total_recharge_power', 'total_customer_load', 'possible_capacity'])
+    # Set 'timestamp' as the index
+    model_data.set_index('timestamp', inplace=True)
+
+    ax = model_data.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'])
+
     plt.xlabel('timestamp')
-    plt.setp(ax.xaxis.get_majorticklabels(), rotation=90)
     plt.ylabel('kW')
+
+    plt.xticks(rotation=90)
     plt.tight_layout()
 
     plt.show()
+    agent_data.to_csv('results/agent_data.csv')
