@@ -685,6 +685,7 @@ class ElectricVehicle(Agent):
             lowest_priority = min(all_priorities)
 
             if highest_priority == lowest_priority:
+                print("same priority")
                 # Calculate a possible charging value for each agent
                 # the charging value is capacity / number of charging agents
                 charging_agents = interaction.get_all_charging_agents()
@@ -711,7 +712,7 @@ class ElectricVehicle(Agent):
                 # Check if there are not processed agents e.g. agents that need reduced charging values
                 if len(not_processed_agents) > 0:
                     # calculate a charging value per agent but with the 'leftover' of other cars
-                    new_power_per_agent = (transformer_capacity + to_distribute) / len(not_processed_agents)
+                    new_power_per_agent = (available_capacity + to_distribute) / len(not_processed_agents)
                     new_value_per_agent = aux.convert_kw_kwh(kw=new_power_per_agent)
                     # second step to reduce all charging cars with that priority with higher charging_values
                     for charger in not_processed_agents:
