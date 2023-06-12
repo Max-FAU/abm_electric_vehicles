@@ -653,52 +653,129 @@ class ElectricVehicle(Agent):
         interaction.set_specific_agents(ElectricVehicle)
         cars = interaction.get_specific_agents()
 
-        transformer_capacity = 7
+        transformer_capacity = 0
+        # GET ALL TRANSFORMER CAPACITIES FROM ALL TRANSFORMER AGENTS
+        from transformer_agent import Transformer
+        for transformer in all_agents:
+            if isinstance(transformer, Transformer):
+                transformer_capacity += transformer.get_capacity_kw()
+
+        # GET ALL LOAD FROM ALL CUSTOMER AGENTS
+        customer_load = 0
+        for power_customer in all_agents:
+            if isinstance(power_customer, PowerCustomer):
+                customer_load += power_customer.get_current_load_kw()
+
+        # Calculate the available capacity to charge
+        available_capacity = transformer_capacity - customer_load
 
         interaction.set_all_charging_agents()
         interaction.set_all_charging_values()
 
         interaction.set_all_priorities()
         all_priorities = interaction.get_all_priorities()
-        print(all_priorities)
 
         interaction.set_total_charging_value()
         interaction.set_total_charging_power()
 
         total_charging_power = interaction.get_total_charging_power()
 
-        if total_charging_power > transformer_capacity:
-            print("interaction")
+        if total_charging_power > available_capacity:
             highest_priority = max(all_priorities)
             lowest_priority = min(all_priorities)
 
             if highest_priority == lowest_priority:
-                print("All same priority.")
                 # Calculate a possible charging value for each agent
                 # the charging value is capacity / number of charging agents
+                charging_agents = interaction.get_all_charging_agents()
+                processed_agents = []
+                not_processed_agents = []
+                charging_power_per_agent = available_capacity / len(charging_agents)
+                to_distribute = 0
 
-                # if the possible charging value is higher than calculated value
-                # then reduce the charging
+                # first step check how many cars are below the charging value
+                for charger in charging_agents:
+                    charging_value = charger.get_charging_value()
+                    charging_power = aux.convert_kw_kwh(kwh=charging_value)
+                    if charging_power_per_agent == charging_power:
+                        # keep charging value but add to processed agents
+                        processed_agents.append(charger)
+                    elif charging_power_per_agent > charging_power:
+                        # keep charging_value for agent and distribute rest
+                        to_distribute += (charging_power_per_agent - charging_power)
+                        processed_agents.append(charger)
+                    else:
+                        # agent charging value needs to be reduced
+                        not_processed_agents.append(charger)
 
-                # if equal, keep the original charging value
-
-                # else (possible charging value is lower)
-                # keep the original charging value and
-                # calculate how much can be given to the other agents
-                # (calculated charging value - original charging value)
-                # When original charging value is kept (because
-                # it is minimum), save the agent, it has final charging value
-                #
-                # THEN calculate again a possible charging value for each agent
-                # reduce the number of charging agents by the agents
-                # that kept the original charging value
-                # do this until there are no more charging agents
+                # Check if there are not processed agents e.g. agents that need reduced charging values
+                if len(not_processed_agents) > 0:
+                    # calculate a charging value per agent but with the 'leftover' of other cars
+                    new_power_per_agent = (transformer_capacity + to_distribute) / len(not_processed_agents)
+                    new_value_per_agent = aux.convert_kw_kwh(kw=new_power_per_agent)
+                    # second step to reduce all charging cars with that priority with higher charging_values
+                    for charger in not_processed_agents:
+                        charger.revert_charge()
+                        charging_value = min(charger.get_charging_value(), new_value_per_agent)
+                        charger.set_charging_value(value=charging_value)
+                        charger.charge()
 
             else:
+                # TODO HOW TO IMPLEMENT THAT EACH CHARGING POWER FOR THE
+                # TODO PRIORITY IS SUFFICIENT TO FULFILL CHARGING
+
+                # Use the function above for each priority
+                # Calculate the sum of charging for that priority
+                # Reduce the available capacity for the next priority by the value
+                # of the current priority
+                # go to the next step
+                # if available capacity == 0:
+                # set charging_value to 0
+
                 # Start with the highest priority to charge proceed
                 for priority in range(highest_priority, lowest_priority - 1, -1):
                     interaction.set_priority(priority)
                     interaction.set_agents_with_charging_priority()
+                    charging_agents = interaction.get_agents_with_charging_priority()
+
+                    processed_agents = []
+                    not_processed_agents = []
+                    charging_power_per_agent = transformer_capacity / len(charging_agents)
+                    to_distribute = 0
+
+                    # first step check how many cars are below the charging value
+                    for charger in charging_agents:
+                        charging_value = charger.get_charging_value()
+                        charging_power = aux.convert_kw_kwh(kwh=charging_value)
+                        if charging_power_per_agent == charging_power:
+                            # keep charging value but add to processed agents
+                            processed_agents.append(charger)
+                        elif charging_power_per_agent > charging_power:
+                            # keep charging_value for agent and distribute rest
+                            to_distribute += (charging_power_per_agent - charging_power)
+                            processed_agents.append(charger)
+                        else:
+                            # agent charging value needs to be reduced
+                            not_processed_agents.append(charger)
+
+                    # Check if there are not processed agents e.g. agents that need reduced charging values
+                    if len(not_processed_agents) > 0:
+                        # calculate a charging value per agent but with the 'leftover' of other cars
+                        new_power_per_agent = (transformer_capacity + to_distribute) / len(not_processed_agents)
+                        new_value_per_agent = aux.convert_kw_kwh(kw=new_power_per_agent)
+                        # second step to reduce all charging cars with that priority with higher charging_values
+                        for charger in not_processed_agents:
+                            charger.revert_charge()
+                            charging_value = min(charger.get_charging_value(), new_value_per_agent)
+                            charger.set_charging_value(value=charging_value)
+                            charger.charge()
+
+
+
+
+
+
+
                     # Get all agents with priority
                     # Calculate a possible charging value for each agent
                     # the charging value is capacity / number of charging agents
