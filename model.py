@@ -163,7 +163,7 @@ class ChargingModel(Model):
             cars += [name]
             distribution += [data[name]["number"] / total_cars]
 
-        np.random.seed(942)
+        np.random.seed(458)
         car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
         # timestamp_now = datetime.datetime.now()
         # np.savetxt('results/car_models_' + str(timestamp_now) + '.txt', car_models, fmt='%s', delimiter=' ')
@@ -178,13 +178,13 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    start_date = '2008-07-13 15:00:00'
-    end_date = '2008-07-14 00:00:00'
+    start_date = '2008-07-13'
+    end_date = '2008-07-20'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=2,
+    model = ChargingModel(num_agents=3,
                           start_date=start_date,
                           end_date=end_date)
 
