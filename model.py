@@ -163,7 +163,7 @@ class ChargingModel(Model):
             cars += [name]
             distribution += [data[name]["number"] / total_cars]
 
-        np.random.seed(458)
+        np.random.seed(21)
         car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
         # timestamp_now = datetime.datetime.now()
         # np.savetxt('results/car_models_' + str(timestamp_now) + '.txt', car_models, fmt='%s', delimiter=' ')
@@ -175,6 +175,7 @@ class ChargingModel(Model):
         self.schedule.step()
         if self.schedule.steps > 0:
             self.datacollector.collect(self)
+        print("Step ", self.schedule.steps, " completed.")
 
 
 if __name__ == '__main__':
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=3,
+    model = ChargingModel(num_agents=35,
                           start_date=start_date,
                           end_date=end_date)
 

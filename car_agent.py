@@ -77,6 +77,8 @@ class ElectricVehicle(Agent):
         self.base_load = 0
         self.capacity_to_charge = None
 
+        self.final_charging_value = False
+
     @property
     def timestamp(self):
         """Function to get the current timestamp."""
@@ -646,13 +648,14 @@ class ElectricVehicle(Agent):
     def get_base_load(self):
         return self.base_load
 
+    def set_final_charging_value(self, value: bool):
+        self.final_charging_value = value
+
+    def get_final_charging_value(self) -> bool:
+        return self.final_charging_value
+
     def interaction_charging_values(self):
         all_agents = self.model.schedule.agents
-        interaction = InteractionClass(all_agents)
-        all_agents = interaction.get_all_agents()
-
-        interaction.set_specific_agents(ElectricVehicle)
-        cars = interaction.get_specific_agents()
 
         transformer_capacity = 0
         # GET ALL TRANSFORMER CAPACITIES FROM ALL TRANSFORMER AGENTS
@@ -667,126 +670,162 @@ class ElectricVehicle(Agent):
                 customer_load += power_customer.get_current_load_kw()
 
         # Calculate the available capacity to charge
-        available_capacity = transformer_capacity - customer_load
+        capacity = transformer_capacity - customer_load
 
-        interaction.set_all_charging_agents()
-        interaction.set_all_charging_values()
+        # all electric vehicle agents
+        electric_vehicles = []
+        for electric_vehicle in all_agents:
+            if isinstance(electric_vehicle, ElectricVehicle):
+                electric_vehicles.append(electric_vehicle)
 
-        interaction.set_all_priorities()
-        all_priorities = interaction.get_all_priorities()
+        total_charging_value = 0
+        # calculate the total charging values of all car agents in the model
+        for charging_value in electric_vehicles:
+            if charging_value is not None:
+                total_charging_value += charging_value.get_charging_value()
 
-        interaction.set_total_charging_value()
-        interaction.set_total_charging_power()
+        # kw total charging power
+        total_charging_power = aux.convert_kw_kwh(kwh=total_charging_value)
 
-        total_charging_power = interaction.get_total_charging_power()
+        all_priorities = []
+        for prio in electric_vehicles:
+            all_priorities.append(prio.get_charging_priority())
 
-        if total_charging_power > available_capacity:
+        if total_charging_power > capacity:
             highest_priority = max(all_priorities)
             lowest_priority = min(all_priorities)
 
             if highest_priority == lowest_priority:
-                # Calculate a possible charging value for each agent
-                # the charging value is capacity / number of charging agents
-                charging_agents = interaction.get_all_charging_agents()
-                processed_agents = []
-                not_processed_agents = []
-                charging_power_per_agent = available_capacity / len(charging_agents)
-                already_distributed = 0
+                distributed = 0     # kw
+                while True:
+                    # get all agents that are completed / have final_charging_value = True
+                    completed_charging_agents = []
+                    for completed in electric_vehicles:
+                        final = completed.get_final_charging_value()
+                        if final:
+                            completed_charging_agents.append(completed)
+                    # number of not finalized charging values
+                    remaining_agents = len(electric_vehicles) - len(completed_charging_agents)
 
-                # Minimum zwischen dem originalen Wert und dem neu berechneten Wert pro Agenten
-                # neu berechneter Wert pro Agenten besteht aus Kapazität - finale Werte / Anzahl ohne
-                # finalen Werte
-                # Dies soll so lange wiederholt werden, bis alle
-                # Agenten einen Ladewert haben.
-
-                # first step check how many cars are below the charging value
-                for charger in charging_agents:
-                    charging_value = charger.get_charging_value()
-                    charging_power = aux.convert_kw_kwh(kwh=charging_value)
-                    if charging_power_per_agent == charging_power:
-                        # keep charging value but add to processed agents
-                        already_distributed += charging_power
-                        processed_agents.append(charger)
-                    elif charging_power_per_agent > charging_power:
-                        already_distributed += charging_power
-                        # keep charging_value for agent and distribute rest
-                        processed_agents.append(charger)
+                    available_capacity = capacity - distributed
+                    if remaining_agents > 0:
+                        charging_power_per_agent = available_capacity / remaining_agents
                     else:
-                        # agent charging value needs to be reduced
-                        not_processed_agents.append(charger)
+                        charging_power_per_agent = 0
 
-                # Check if there are not processed agents e.g. agents that need reduced charging values
-                if len(not_processed_agents) > 0:
-                    # calculate a charging value per agent but with the 'leftover' of other cars
-                    new_power_per_agent = (available_capacity - already_distributed) / len(not_processed_agents)
-                    new_value_per_agent = aux.convert_kw_kwh(kw=new_power_per_agent)
-                    # second step to reduce all charging cars with that priority with higher charging_values
-                    for charger in not_processed_agents:
-                        charger.revert_charge()
-                        charging_value = min(charger.get_charging_value(), new_value_per_agent)
-                        charger.set_charging_value(value=charging_value)
-                        charger.charge()
+                    for ev in electric_vehicles:
+                        if not ev.get_final_charging_value():
+                            # kwh
+                            charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
+                            # kwh
+                            new_charging_value = min(charging_value_per_agent, ev.get_charging_value())
+                            # kwh, kwh
+                            if new_charging_value >= ev.get_charging_value():
+                                ev.revert_charge()
+                                ev.set_charging_value(new_charging_value)
+                                ev.set_final_charging_value(True)
+                                ev.charge()
+                                new_charging_power = aux.convert_kw_kwh(kwh=new_charging_value)
+                                distributed += new_charging_power
 
+                    completed_charging_agents_after = []
+                    for completed in electric_vehicles:
+                        if completed.get_final_charging_value():
+                            completed_charging_agents_after.append(completed)
+                    if len(completed_charging_agents) == len(completed_charging_agents_after):
+                        available_capacity = capacity - distributed
+                        remaining_agents = len(electric_vehicles) - len(completed_charging_agents_after)
+
+                        if remaining_agents > 0:
+                            charging_power_per_agent = available_capacity / remaining_agents
+
+                            for elec_vehic in electric_vehicles:
+                                if not elec_vehic.get_final_charging_value():
+                                    elec_vehic.revert_charge()
+                                    charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
+                                    elec_vehic.set_charging_value(charging_value_per_agent)
+                                    elec_vehic.set_final_charging_value(True)
+                                    elec_vehic.charge()
+                                    new_charging_power = aux.convert_kw_kwh(kwh=charging_value_per_agent)
+                                    distributed += new_charging_power
+
+                        break
+
+                # Reset all final charging bools
+                for ev in electric_vehicles:
+                    ev.set_final_charging_value(False)
             else:
+                distributed = 0  # kw
                 # Start with the highest priority to charge proceed
                 for priority in range(highest_priority, lowest_priority - 1, -1):
-                    # Do the same as if all have the same priority
-                    interaction.set_priority(priority)
-                    interaction.set_agents_with_charging_priority()
-                    charging_agents = interaction.get_agents_with_charging_priority()
+                    # get all agents with this priority
+                    agents_with_priority = []
+                    for ev in electric_vehicles:
+                        if priority == ev.get_charging_priority():
+                            agents_with_priority.append(ev)
 
-                    # check if some priorities are skipped e.g. 1 car prio 5 other prio 3
-                    if len(charging_agents) == 0:
+                    # check if some priorities are skipped e.g. 1 car prio 5 other prio 3, 4 is then skipped
+                    if len(agents_with_priority) == 0:
                         continue
 
-                    processed_agents = []
-                    not_processed_agents = []
-                    charging_power_per_agent = available_capacity / len(charging_agents)
-                    already_distributed = 0
-                    to_distribute = 0
+                    while True:
+                        # get all agents that are completed / have final_charging_value = True
+                        completed_charging_agents = []
+                        for completed in agents_with_priority:
+                            final = completed.get_final_charging_value()
+                            if final:
+                                completed_charging_agents.append(completed)
+                        # number of not finalized charging values
+                        remaining_agents = len(agents_with_priority) - len(completed_charging_agents)
 
-
-                    # first step check how many cars are below the charging value
-                    for charger in charging_agents:
-                        charging_value = charger.get_charging_value()
-                        charging_power = aux.convert_kw_kwh(kwh=charging_value)
-                        if charging_power_per_agent == charging_power:
-                            already_distributed += charging_power
-                            # keep charging value but add to processed agents
-                            processed_agents.append(charger)
-                        elif charging_power_per_agent > charging_power:
-                            already_distributed += charging_power
-                            # keep charging_value for agent and distribute rest
-                            to_distribute += (charging_power_per_agent - charging_power)
-                            processed_agents.append(charger)
+                        available_capacity = capacity - distributed
+                        if remaining_agents > 0:
+                            charging_power_per_agent = available_capacity / remaining_agents
                         else:
-                            # agent charging value needs to be reduced
-                            not_processed_agents.append(charger)
+                            charging_power_per_agent = 0
 
-                    # Check if there are not processed agents e.g. agents that need reduced charging values
-                    if len(not_processed_agents) > 0:
-                        # calculate a charging value per agent but with the 'leftover' of other cars
-                        new_power_per_agent = (available_capacity - already_distributed + to_distribute) / len(not_processed_agents)
-                        new_value_per_agent = aux.convert_kw_kwh(kw=new_power_per_agent)
-                        # second step to reduce all charging cars with that priority with higher charging_values
-                        for charger in not_processed_agents:
-                            charger.revert_charge()
-                            charging_value = min(charger.get_charging_value(), new_value_per_agent)
-                            charger.set_charging_value(value=charging_value)
-                            charger.charge()
-                            processed_agents.append(charger)
+                        for ev in agents_with_priority:
+                            if not ev.get_final_charging_value():
+                                # kwh
+                                charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
+                                # kwh
+                                new_charging_value = min(charging_value_per_agent, ev.get_charging_value())
+                                # kwh, kwh
+                                if new_charging_value >= ev.get_charging_value():
+                                    ev.revert_charge()
+                                    ev.set_charging_value(new_charging_value)
+                                    ev.set_final_charging_value(True)
+                                    ev.charge()
+                                    new_charging_power = aux.convert_kw_kwh(kwh=new_charging_value)
+                                    distributed += new_charging_power
 
-                    # reduce available capacity for the next priority
-                    charging_value_sum = 0
+                        completed_charging_agents_after = []
+                        for completed in agents_with_priority:
+                            if completed.get_final_charging_value():
+                                completed_charging_agents_after.append(completed)
 
-                    # calc the sum of charging values
-                    for b in processed_agents:
-                        charging_value_sum += b.get_charging_value()
+                        # check if there are more completed agents after loop before
+                        if len(completed_charging_agents) == len(completed_charging_agents_after):
+                            available_capacity = capacity - distributed
+                            remaining_agents = len(agents_with_priority) - len(completed_charging_agents_after)
+                            if remaining_agents > 0:
+                                charging_power_per_agent = available_capacity / remaining_agents
 
-                    charging_power_sum = aux.convert_kw_kwh(kwh=charging_value_sum)
-                    # reduce the available capacity
-                    available_capacity -= charging_power_sum
+                                for elec_vehic in agents_with_priority:
+                                    if not elec_vehic.get_final_charging_value():
+                                        elec_vehic.revert_charge()
+                                        charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
+                                        elec_vehic.set_charging_value(charging_value_per_agent)
+                                        elec_vehic.set_final_charging_value(True)
+                                        elec_vehic.charge()
+                                        new_charging_power = aux.convert_kw_kwh(kwh=charging_value_per_agent)
+                                        distributed += new_charging_power
 
+                            break
+
+                # Reset all final charging bools
+                for ev in electric_vehicles:
+                    ev.set_final_charging_value(False)
 
     def step(self):
         if self.timestamp is None:

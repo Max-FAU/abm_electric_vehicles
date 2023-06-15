@@ -2,7 +2,6 @@ import pandas as pd
 import random
 
 
-
 def charging_algo(capacity, df):
     distributed = 0
     while True:
@@ -40,6 +39,7 @@ def charging_algo(capacity, df):
             break
 
     return df
+
 
 if __name__ == '__main__':
     capacity = 7
