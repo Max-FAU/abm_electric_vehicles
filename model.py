@@ -54,7 +54,7 @@ class ChargingModel(Model):
             car_model = self.list_models[i]
             try:
                 # Add Electric Vehicles to the scheduler
-                car = ElectricVehicle(unique_id=i,
+                car = ElectricVehicleOffpeak(unique_id=i,
                                       model=self,
                                       car_model=car_model,
                                       start_date=self.start_date,
@@ -84,7 +84,8 @@ class ChargingModel(Model):
                 'transformer_capacity': self.calc_transformer_capacity
             },
             agent_reporters={
-                "car_data": lambda agent: self.agent_reporter_car(agent) if agent.type == 'Car' else {},
+                "car_data": lambda agent: self.agent_reporter_car(
+                    agent) if agent.type == 'Car' else {},
                 "customer_data": lambda agent: self.agent_reporter_customer(
                     agent) if agent.type == 'Customer' else {}
             }
