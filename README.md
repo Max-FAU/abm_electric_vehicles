@@ -10,45 +10,45 @@ To start the project navigate to an existing virtual environment or create a new
 ## Usage
 ### Input Files
 #### car_values.json
-Holding data for the 10 most popular electric vehicles in Germany.
-Number of vehicles is taken from Kraftfahrt-Bundesamt
-https://www.kba.de/DE/Statistik/Fahrzeuge/Neuzulassungen/neuzulassungen_node.html
+Holding data for the 10 most popular electric vehicles in Germany.<br>
+Number of vehicles is taken from Kraftfahrt-Bundesamt<br>
+https://www.kba.de/DE/Statistik/Fahrzeuge/Neuzulassungen/neuzulassungen_node.html<br>
 
-Charging power and battery capacities are taken from ADAC
-https://www.adac.de/rund-ums-fahrzeug/autokatalog/marken-modelle/
+Charging power and battery capacities are taken from ADAC<br>
+https://www.adac.de/rund-ums-fahrzeug/autokatalog/marken-modelle/<br>
 
-File is structured as follows:
-"car_model_name": {
-    "battery_capacity": 77,
-    "charging_power_ac": 11,
-    "charging_power_dc": 50,
-    "number": 30000
-}
+File is structured as follows:<br>
+"car_model_name": {<br>
+    "battery_capacity": 77,<br>
+    "charging_power_ac": 11,<br>
+    "charging_power_dc": 50,<br>
+    "number": 30000<br>
+}<br>
 
 #### h0_profile.csv
-Represents a standard load profile of a private customer.
-The csv file is taken from BDEW
-https://www.bdew.de/energie/standardlastprofile-strom/
+Represents a standard load profile of a private customer.<br>
+The csv file is taken from BDEW<br>
+https://www.bdew.de/energie/standardlastprofile-strom/<br>
 
 #### single_phase_transformers.json
-Has transformer values in kVA representing standard single phase transformer sizes.
-Data can be found at Schneider Electric
-https://www.se.com/us/en/download/document/7400HO9501/
+Has transformer values in kVA representing standard single phase transformer sizes.<br>
+Data can be found at Schneider Electric<br>
+https://www.se.com/us/en/download/document/7400HO9501/<br>
 
 #### private_cars.json
-The mobility data has been labeled in previous work according to the driving profiles.
-File is storing car ids of private cars.
+The mobility data has been labeled in previous work according to the driving profiles.<br>
+File is storing car ids of private cars.<br>
 
 #### Mobility Data
-Mobility data files should have the following columns, named like this:
-'TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTION', 'ID_PANELSESSION', 'ID_TERMINAL'
-TIMESTAMP: The date and time of the measurement (day/month/year hour.minute.second)
-TRIPNUMBER: This is an increasing number starting from 0 for the first trip
-DELTAPOS: Is the position in meters the car has travelled since last measurement
-CLUSTER: Depending on the location this column holds a 1 for home 2 for work or a 0 for everywhere else
-ECONSUMPTION: Is holding the consumption the car had since the last measurement in kWh
-ID_PANELSESSION: Is holding a value for each state of the electric vehicle 0=ignition, 1=driving, 2=engine turn-off
-ID_TERMINAL: The ID of the vehicle
+Mobility data files should have the following columns, named like this:<br>
+'TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTION', 'ID_PANELSESSION', 'ID_TERMINAL'<br>
+TIMESTAMP: The date and time of the measurement (day/month/year hour.minute.second)<br>
+TRIPNUMBER: This is an increasing number starting from 0 for the first trip<br>
+DELTAPOS: Is the position in meters the car has travelled since last measurement<br>
+CLUSTER: Depending on the location this column holds a 1 for home 2 for work or a 0 for everywhere else<br>
+ECONSUMPTION: Is holding the consumption the car had since the last measurement in kWh<br>
+ID_PANELSESSION: Is holding a value for each state of the electric vehicle 0=ignition, 1=driving, 2=engine turn-off<br>
+ID_TERMINAL: The ID of the vehicle<br>
 
 ## Contribution
 
