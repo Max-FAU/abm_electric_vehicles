@@ -7,7 +7,7 @@ To start the project navigate to an existing virtual environment or create a new
 3. Run in terminal following command:  
 `pip install -r requirements.txt`  
 4. Open the file `project_paths.py` and edit the MOBILITY_DATA_DIRECTORY_PATH to the path with mobility_profiles
-## Usage
+## Data
 ### Input Files
 #### car_values.json
 Holding data for the 10 most popular electric vehicles in Germany.<br>
@@ -49,6 +49,8 @@ CLUSTER: Depending on the location this column holds a 1 for home 2 for work or 
 ECONSUMPTION: Is holding the consumption the car had since the last measurement in kWh<br>
 ID_PANELSESSION: Is holding a value for each state of the electric vehicle 0=ignition, 1=driving, 2=engine turn-off<br>
 ID_TERMINAL: The ID of the vehicle<br>
+
+## Usage
 
 ## Contribution
 
