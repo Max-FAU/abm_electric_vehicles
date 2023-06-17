@@ -1,6 +1,7 @@
 import json
-from customer_agent import PowerCustomer
+from agents.customer_agent import PowerCustomer
 from mesa import Agent
+from project_paths import TRANSFORMER_VALUES_PATH
 
 
 class Transformer(Agent):
@@ -36,7 +37,7 @@ class Transformer(Agent):
     @staticmethod
     def possible_size():
         # https://www.se.com/us/en/download/document/7400HO9501/
-        with open('input/single_phase_transformers.json') as f:
+        with open(TRANSFORMER_VALUES_PATH) as f:
             data = json.load(f)
         return data['kVA']
 

@@ -2,9 +2,11 @@ import datetime
 import pandas as pd
 import dask.dataframe as dd
 from mesa import Agent
+from project_paths import H0_FILE_PATH, H0_CLEANED_FILE_PATH
 
-def create_cleaned_h0_profile(self):
-    df = dd.read_csv("input/h0_profile.csv")
+
+def create_cleaned_h0_profile():
+    df = dd.read_csv(H0_FILE_PATH)
     df = df.drop(columns=['TagNr.', 'Tag'])
 
     # stack the rows and set the column name as index
@@ -15,12 +17,12 @@ def create_cleaned_h0_profile(self):
     # drop the original date and time columns
     df_stacked.drop(['Datum', 'time'], axis=1, inplace=True)
     # replace the year in h0 profile timestamps to current year
-    relevant_year = self.start_date.year
+    relevant_year = start_date.year
     df_stacked['datetime'] = df_stacked['datetime'].apply(lambda x: x.replace(year=relevant_year))
     # set the datetime column as index
     df_stacked.set_index('datetime', inplace=True)
     # self.calc_max_peak_load(df_stacked)
-    df_stacked.to_csv('cleaned_h0_profile.csv')
+    df_stacked.to_csv(H0_CLEANED_FILE_PATH)
 
 
 class PowerCustomer(Agent):
@@ -63,7 +65,12 @@ class PowerCustomer(Agent):
         self._timestamp = current_timestamp
 
     def set_standard_load_profile(self):
-        base_load = pd.read_csv('input/cleaned_h0_profile.csv', parse_dates=['datetime'], index_col=['datetime'])
+        try:
+            base_load = pd.read_csv(H0_CLEANED_FILE_PATH, parse_dates=['datetime'], index_col=['datetime'])
+        except:
+            # Create the cleaned h0 profile if it does not exist
+            create_cleaned_h0_profile()
+            base_load = pd.read_csv(H0_CLEANED_FILE_PATH, parse_dates=['datetime'], index_col=['datetime'])
         self.standard_load_profile = base_load
 
     def get_standard_load_profile(self):

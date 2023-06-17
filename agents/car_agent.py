@@ -5,10 +5,10 @@ import auxiliary as aux
 import random
 import datetime
 from mobility_data import MobilityDataAggregator
-from interaction import InteractionClass
-from customer_agent import PowerCustomer
-from transformer_agent import Transformer
+from agents.customer_agent import PowerCustomer
+from agents.transformer_agent import Transformer
 import dask.dataframe as dd
+from project_paths import CAR_VALUES_PATH, MEDIAN_TRIP_LEN_PATH
 
 
 class ElectricVehicle(Agent):
@@ -19,7 +19,7 @@ class ElectricVehicle(Agent):
     # Track already assigned mobility profiles
     picked_mobility_data = []
 
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc):
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, charging_algo):
 
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
@@ -31,6 +31,7 @@ class ElectricVehicle(Agent):
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
         self.target_soc = target_soc
+        self.charging_algo = False
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -92,7 +93,7 @@ class ElectricVehicle(Agent):
     def load_car_value_dict(self):
         """Opens json file with all values stored for cars."""
         # load car values from JSON file in directory
-        with open('input/car_values.json') as f:
+        with open(CAR_VALUES_PATH) as f:
             car_dict = json.load(f)
         self.car_values = car_dict
 
@@ -171,14 +172,14 @@ class ElectricVehicle(Agent):
         shorter trips for the time period of the Simulation.
         """
         # this file generated with one time run in match_cars_mobility.py
-        file_name_median_trip_len = 'median_trip_length.csv'
+        # try to load it otherwise it will be generated
         try:
-            df = pd.read_csv(file_name_median_trip_len, index_col=0)
+            df = pd.read_csv(MEDIAN_TRIP_LEN_PATH, index_col=0)
         except:
             print("Mobility mapping file has to be generated once.\n"
                   "This might take a while.")
-            self.create_matching_file(file_name_median_trip_len)
-            df = pd.read_csv(file_name_median_trip_len, index_col=0)
+            self.create_matching_file(MEDIAN_TRIP_LEN_PATH)
+            df = pd.read_csv(MEDIAN_TRIP_LEN_PATH, index_col=0)
         return df
 
     def create_matching_file(self, file_name_median_trip_len):
@@ -487,7 +488,7 @@ class ElectricVehicle(Agent):
         possible_charging_value = max(0, battery_capacity * potential_soc / 100)
         return possible_charging_value
 
-    def calc_charging_value(self):
+    def calc_charging_value(self, charging_efficiency=90):
         """
         Function to calculate the real charging value.
 
@@ -498,36 +499,25 @@ class ElectricVehicle(Agent):
         - empty battery capacity regarding soc
 
         """
-        # TODO in CONSUMPTION efficiency is already included, in charging_power station / car it is not included
         empty_battery_capacity = self.empty_battery_capacity()   # kwh
         possible_soc_capacity = self.empty_battery_capacity_soc()    # kwh
 
         # Set correct charging power for the car based on cluster
         charging_power_car = self.get_charging_power_car()
         charging_value_car = aux.convert_kw_kwh(kw=charging_power_car)
+        real_charging_value_car = charging_value_car * charging_efficiency / 100
 
         # Set correct charging power for the station based on cluster
         charging_power_station = self.get_charging_power_station()
         charging_value_station = aux.convert_kw_kwh(kw=charging_power_station)
+        real_charging_value_station = charging_value_station * charging_efficiency / 100
 
         possible_charging_value = min(empty_battery_capacity,
                                       possible_soc_capacity,
-                                      charging_value_car,
-                                      charging_value_station)
+                                      real_charging_value_car,
+                                      real_charging_value_station)
 
         return possible_charging_value
-
-    def set_charging_power(self):
-        charging_value = self.get_charging_value()
-        self.charging_power = aux.convert_kw_kwh(kwh=charging_value)
-
-    # TODO efficiency to 100 digits
-    # grid value will be the same // grid load is the wrong name for it
-    def set_grid_load(self, charging_efficiency=0.95):
-        charging_value = self.get_charging_value()
-        charging_power = charging_value * 4   # kW
-        # TODO GRID LOAD IS IMPORTANT AND IS WRONG
-        self.grid_load = charging_value / charging_efficiency
 
     def get_cluster(self):
         """
@@ -848,23 +838,20 @@ class ElectricVehicle(Agent):
         self.set_all_charging_values()
         # self.calc_charging_value()
         self.charge()
-        self.set_grid_load()
         self.set_car_charging_priority()
 
-        # Check if the step is done for the last agent in model
-        # Start the interaction
-        all_agents = self.model.schedule.agents
-        all_agents_ids = []
-        for agent in all_agents:
-            all_agents_ids += [agent.get_unique_id()]
-        current_agent_id = self.get_unique_id()
-        # Check if current agent id is the last id in list of ids of scheduled agents then interact
-        if all_agents_ids[-1] == current_agent_id:
-            # Calculate how much capacity is available for charging cars after household base load
-            self.interaction_charging_values()
-
-        # self.charge()
-        # self.set_grid_load()
+        if self.charging_algo:
+            # Check if the step is done for the last agent in model
+            # Start the interaction
+            all_agents = self.model.schedule.agents
+            all_agents_ids = []
+            for agent in all_agents:
+                all_agents_ids += [agent.get_unique_id()]
+            current_agent_id = self.get_unique_id()
+            # Check if current agent id is the last id in list of ids of scheduled agents then interact
+            if all_agents_ids[-1] == current_agent_id:
+                # Calculate how much capacity is available for charging cars after household base load
+                self.interaction_charging_values()
 
         # print("charging_power_station: {}, "
         #       "charging_power_car: {}, "
@@ -877,13 +864,6 @@ class ElectricVehicle(Agent):
         #                               self.empty_battery_capacity(),
         #                               self.get_charging_value(),
         #                               self.get_battery_level()))
-
-        # self.interaction_charging_values()
-
-        # charging_power car
-        # current charging power
-        # plug in status
-        # pos
 
 
 if __name__ == '__main__':

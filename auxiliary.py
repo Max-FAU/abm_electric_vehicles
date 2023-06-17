@@ -3,9 +3,7 @@ import glob
 import pandas as pd
 from tqdm import tqdm
 from mobility_data import MobilityDataAggregator
-
-DIRECTORY_PATH = r"D:\Max_Mobility_Profiles\quarterly_simulation"
-DIRECTORY_PATH_TEST = r"C:\Users\Max\Desktop\Master Thesis\Data\MobilityProfiles_EV_Data"
+from project_paths import MOBILITY_DATA_DIRECTORY_PATH
 
 
 def read_json_config(keyword):
@@ -20,7 +18,6 @@ def set_print_options():
     pd.set_option('display.expand_frame_repr', False)
 
 
-#TODO Set the directory Path as variable on top of file DIRECTORY_PATH = r"J:\Max_Mobility_Profiles\quarterly_simulation"
 def get_directory_path(test=False) -> str:
     directory_path = r"D:\Max_Mobility_Profiles\quarterly_simulation"
     # directory_path = r"J:\Max_Mobility_Profiles\quarterly_simulation"
@@ -36,8 +33,8 @@ def create_file_path(car_id, test=False) -> str:
     if test:
         directory_path = get_directory_path(test=test)
         car_id = 80
-    file_name = '\quarterly_simulation_' + str(car_id) + '.csv'
-    file_name = directory_path + file_name
+    file_name = 'quarterly_simulation_' + str(car_id) + '.csv'
+    file_name = MOBILITY_DATA_DIRECTORY_PATH / file_name
     return file_name
 
 
@@ -49,6 +46,7 @@ def median_trip_length(df, car_id) -> dict:
     len_dict[car_id] = med_trip_len
     print('Successfully calculated median trip length for car {}.'.format(car_id))
     return len_dict
+
 
 def is_private_car(unique_id: int):
     """Load the json which indicates if the car is a private car."""

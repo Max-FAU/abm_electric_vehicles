@@ -1,5 +1,5 @@
 import auxiliary as aux
-from car_agent import ElectricVehicle
+from agents.car_agent import ElectricVehicle
 
 
 # TODO implement charging in flat manner, means calculate the time the car stands

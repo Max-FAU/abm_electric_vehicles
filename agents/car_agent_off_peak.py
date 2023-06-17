@@ -1,14 +1,14 @@
-from car_agent import ElectricVehicle
-from customer_agent import PowerCustomer
-from transformer_agent import Transformer
+from agents.car_agent import ElectricVehicle
+from agents.customer_agent import PowerCustomer
+from agents.transformer_agent import Transformer
 import pandas as pd
 import datetime
 import auxiliary as aux
 
 
 class ElectricVehicleOffpeak(ElectricVehicle):
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc):
-        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc)
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, charging_algo):
+        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, charging_algo)
         self.start_off_peak = pd.to_datetime('22:00:00')
         self.end_off_peak = pd.to_datetime('06:00:00')
         self.off_peak = False
@@ -235,17 +235,17 @@ class ElectricVehicleOffpeak(ElectricVehicle):
         self.set_all_charging_values()
         # self.calc_charging_value()
         self.charge()
-        self.set_grid_load()
         self.set_car_charging_priority()
 
-        # Check if the step is done for the last agent in model
-        # Start the interaction
-        all_agents = self.model.schedule.agents
-        all_agents_ids = []
-        for agent in all_agents:
-            all_agents_ids += [agent.get_unique_id()]
-        current_agent_id = self.get_unique_id()
-        # Check if current agent id is the last id in list of ids of scheduled agents then interact
-        if all_agents_ids[-1] == current_agent_id:
-            # Calculate how much capacity is available for charging cars after household base load
-            self.interaction_charging_values()
+        if self.charging_algo:
+            # Check if the step is done for the last agent in model
+            # Start the interaction
+            all_agents = self.model.schedule.agents
+            all_agents_ids = []
+            for agent in all_agents:
+                all_agents_ids += [agent.get_unique_id()]
+            current_agent_id = self.get_unique_id()
+            # Check if current agent id is the last id in list of ids of scheduled agents then interact
+            if all_agents_ids[-1] == current_agent_id:
+                # Calculate how much capacity is available for charging cars after household base load
+                self.interaction_charging_values()

@@ -3,17 +3,19 @@ import mesa
 import json
 import numpy as np
 import pandas as pd
-from car_agent import ElectricVehicle
-from car_agent_off_peak import ElectricVehicleOffpeak
-from transformer_agent import Transformer
-from customer_agent import PowerCustomer
+from agents.car_agent import ElectricVehicle
+from agents.car_agent_off_peak import ElectricVehicleOffpeak
+from agents.transformer_agent import Transformer
+from agents.customer_agent import PowerCustomer
 import auxiliary as aux
-
 import datetime
+from project_paths import CAR_VALUES_PATH
 
 
 class ChargingModel(Model):
-    def __init__(self, num_agents: int, start_date: str, end_date: str):
+    def __init__(self, num_agents: int,
+                 start_date: str,
+                 end_date: str):
         """
         Simulation for charging agents
         :num_agents: 1 up to 698
@@ -54,12 +56,13 @@ class ChargingModel(Model):
             car_model = self.list_models[i]
             try:
                 # Add Electric Vehicles to the scheduler
-                car = ElectricVehicleOffpeak(unique_id=i,
+                car = ElectricVehicle(unique_id=i,
                                       model=self,
                                       car_model=car_model,
                                       start_date=self.start_date,
                                       end_date=self.end_date,
-                                      target_soc=100)
+                                      target_soc=100,
+                                      charging_algo=False)
 
                 # Add Power Customers to the scheduler
                 customer = PowerCustomer(unique_id=i + self.num_agents,
@@ -151,7 +154,7 @@ class ChargingModel(Model):
         return car_models
 
     def generate_cars_according_to_dist(self):
-        with open('input/car_values.json', 'r') as f:
+        with open(CAR_VALUES_PATH, 'r') as f:
             data = json.load(f)
 
         total_cars = 0
@@ -176,45 +179,69 @@ class ChargingModel(Model):
         self.schedule.step()
         if self.schedule.steps > 0:
             self.datacollector.collect(self)
-        print("Step ", self.schedule.steps, " completed.")
+        # print("Step ", self.schedule.steps, " completed.")
 
 
 if __name__ == '__main__':
+    import time
+    from tqdm import tqdm
+    start_time = time.time()
+
     start_date = '2008-07-13'
     end_date = '2008-07-20'
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model = ChargingModel(num_agents=35,
+    model = ChargingModel(num_agents=2,
                           start_date=start_date,
                           end_date=end_date)
 
-    for i in range(num_intervals):
+    for i in tqdm(range(num_intervals)):
         model.step()
 
     model_data = model.datacollector.get_model_vars_dataframe()
     agent_data = model.datacollector.get_agent_vars_dataframe()
 
-    # print(model_data['total_customer_load'])
     model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
-    # aux.set_print_options()
-    # print(agent_data)
+
     import matplotlib.pyplot as plt
 
+    # # black and white
+    # plt.style.use('grayscale')
+
     x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
-    x_axis_time = x_axis_time[1:]
+    x_axis_time = x_axis_time[:-1]
+
+
     model_data['timestamp'] = x_axis_time
-    # Set 'timestamp' as the index
     model_data.set_index('timestamp', inplace=True)
 
-    ax = model_data.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'])
+    fig, ax = plt.subplots()
 
-    plt.xlabel('timestamp')
+    model_data.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'], ax=ax)
+
+    plt.xlabel('Timestamp')
     plt.ylabel('kW')
 
-    plt.xticks(rotation=90)
-    plt.tight_layout()
+    ax.set_xticks(model_data.index[::24])
+    ax.set_xticklabels(model_data.index[::24].strftime('%d-%m %H:%M'), rotation=90)
 
+    lines = ax.get_lines()
+
+    linestyles = ['-.', '--', ':', '-']
+    for i, line in enumerate(lines):
+        line.set_linestyle(linestyles[i % len(linestyles)])
+
+    legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.4), ncol=2, frameon=False)
+
+    legend.get_frame().set_facecolor('white')
+
+    plt.subplots_adjust(bottom=0.3)
+
+    plt.tight_layout()
     plt.show()
+
     agent_data.to_csv('results/agent_data.csv')
+
+    print("%s seconds" % (time.time() - start_time))

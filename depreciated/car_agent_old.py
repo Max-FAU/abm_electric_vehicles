@@ -83,7 +83,7 @@ class ElectricVehicle(mesa.Agent):
 
     def load_mobility_data(self):
         # this file generated with one time run in match_cars_mobility.py
-        file_name_median_trip_len = '../median_trip_length.csv'
+        file_name_median_trip_len = '../input/median_trip_length.csv'
         try:
             df = pd.read_csv(file_name_median_trip_len, index_col=0)
         except:
