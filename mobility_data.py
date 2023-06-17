@@ -1,5 +1,4 @@
 import pandas as pd
-import dask.dataframe as dd
 
 
 class MobilityDataAggregator:
@@ -32,8 +31,20 @@ class MobilityDataAggregator:
         if self.end_date > raw_end_date:
             print('End date: {} is too late for this data set.'.format(raw_end_date))
 
-        self.df_limited_time = raw_mobility_data.loc[(raw_mobility_data['TIMESTAMP'] >= self.start_date) &
-                                                     (raw_mobility_data['TIMESTAMP'] < self.end_date)]
+        # to avoid errors when setting data to timestamp, each timestamp has to present in the mobility file
+        # create a dataframe only with all timestamps between start and end date
+        timestamps = pd.date_range(start=self.start_date,
+                                   end=self.end_date,
+                                   freq='15T')
+
+        df_timestamps = pd.DataFrame({'TIMESTAMP': timestamps})
+
+        # left join the dataframe to only assign values to existing timestamps
+        self.df_limited_time = pd.merge(df_timestamps, raw_mobility_data, on='TIMESTAMP', how='left')
+
+        # filter the raw mobility data according to start and end time
+        # self.df_limited_time = raw_mobility_data.loc[(raw_mobility_data['TIMESTAMP'] >= self.start_date) &
+        #                                              (raw_mobility_data['TIMESTAMP'] < self.end_date)]
 
     def _aggregate_15_min_steps(self):
         # calculate the total energy demand in that 15 minutes

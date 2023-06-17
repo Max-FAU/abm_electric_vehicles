@@ -72,7 +72,7 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added transformer number {} to the model.".format(i))
+            print("...added transformer number {} to the model.".format(i+1))
             i += 1
 
         j = 0
@@ -96,7 +96,7 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added normal ev number {} to the model.".format(j))
+            print("...added normal ev number {} to the model.".format(j+1))
             j += 1
 
         k = 0
@@ -121,7 +121,7 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added normal ev number {} to the model.".format(k))
+            print("...added normal ev number {} to the model.".format(k+1))
             k += 1
 
         o = 0
@@ -141,7 +141,7 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added power customer number {} to the model.".format(o))
+            print("...added power customer number {} to the model.".format(o+1))
             o += 1
 
         self.datacollector = mesa.DataCollector(

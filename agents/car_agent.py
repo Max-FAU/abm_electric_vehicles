@@ -258,6 +258,7 @@ class ElectricVehicle(Agent):
 
         return data_aggregator.df_processed
 
+    # TODO CHECK IF ALL TIMESTAMPS ARE PRESENT IN THE MOBILITY_DATA_FILE IF NOT RUN THE ADD MOBILITY DATA AGAIN
     def add_mobility_data(self):
         """Function to assign the correct mobility file to a car and load it afterwards."""
         # Load a matching file, it will be generated and then loaded, if not existing
