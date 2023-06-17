@@ -5,3 +5,5 @@ test_data/labelled_cars.csv
 test_data/mobility_data_trip1_test.csv
 test_data/test.csv
 test_data/test_trips.csv
+/failed_processed_dataframes/
+/depreciated/
