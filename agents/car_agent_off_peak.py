@@ -7,8 +7,8 @@ import auxiliary as aux
 
 
 class ElectricVehicleOffpeak(ElectricVehicle):
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, charging_algo):
-        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, charging_algo)
+    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, charging_algo, seed_value):
+        super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, charging_algo, seed_value)
         self.start_off_peak = pd.to_datetime('22:00:00')
         self.end_off_peak = pd.to_datetime('06:00:00')
         self.off_peak = False

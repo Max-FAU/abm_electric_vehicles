@@ -8,17 +8,20 @@ from agents.car_agent_off_peak import ElectricVehicleOffpeak
 from agents.transformer_agent import Transformer
 from agents.customer_agent import PowerCustomer
 import auxiliary as aux
-import datetime
 from project_paths import CAR_VALUES_PATH
 
 
 class ChargingModel(Model):
     def __init__(self,
-                 num_cars: int,
+                 num_cars_normal: int,
+                 num_cars_off_peak: int,
                  num_transformers: int,
                  num_customers: int,
                  start_date: str,
-                 end_date: str):
+                 end_date: str,
+                 car_target_soc: int,
+                 car_charging_algo: bool,
+                 seed_value: int):
         """
         Simulation for charging agents
         :num_agents: 1 up to 698
@@ -31,11 +34,17 @@ class ChargingModel(Model):
         self.end_date = pd.to_datetime(end_date)
 
         self.schedule = mesa.time.SimultaneousActivation(self)
-        assert num_cars <= 698, "Only 698 agents are possible"
-        self.num_cars = num_cars
+        assert num_cars_normal <= 698, "Only 698 agents are possible"
+        self.num_cars_normal = num_cars_normal
+        self.num_cars_off_peak = num_cars_off_peak
+        self.seed_value = seed_value
         self.list_models = self.generate_cars_according_to_dist()
         self.num_transformers = num_transformers
         self.num_customers = num_customers
+        self.car_target_soc = car_target_soc
+        self.car_charging_algo = car_charging_algo
+
+        self.id_counter = 0
 
         # Return the peak load of one customer, is not added to the scheduler
         transformer_sizing = PowerCustomer(unique_id=None,
@@ -47,11 +56,11 @@ class ChargingModel(Model):
         transformer_sizing.initialize_customer()
         peak_load = transformer_sizing.get_peak_load_kw()
 
-        j = 0
-        while j < self.num_transformers:
+        i = 0
+        while i < self.num_transformers:
             try:
                 # Size the transformer according to peak load and add to scheduler
-                unique_id_trans = j
+                unique_id_trans = self.get_next_id()
                 transformer = Transformer(unique_id=unique_id_trans,
                                           model=self,
                                           num_households=num_customers,
@@ -63,22 +72,23 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added transformer number {} to the model.".format(j))
-            j += 1
+            print("...added transformer number {} to the model.".format(i))
+            i += 1
 
-        i = 0
-        while i < self.num_cars:
-            car_model = self.list_models[i]
+        j = 0
+        while j < self.num_cars_normal:
+            car_model = self.list_models[j]
             try:
                 # Add Electric Vehicles to the scheduler
-                unique_id_car = i + self.num_transformers
+                unique_id_car = self.get_next_id()
                 car = ElectricVehicle(unique_id=unique_id_car,
                                       model=self,
                                       car_model=car_model,
                                       start_date=self.start_date,
                                       end_date=self.end_date,
-                                      target_soc=100,
-                                      charging_algo=False)
+                                      target_soc=self.car_target_soc,
+                                      charging_algo=self.car_charging_algo,
+                                      seed_value=self.seed_value)
 
                 self.schedule.add(car)
 
@@ -86,14 +96,39 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added electric vehicle number {} to the model.".format(i))
-            i += 1
+            print("...added normal ev number {} to the model.".format(j))
+            j += 1
 
         k = 0
-        while k < self.num_customers:
+        while k < self.num_cars_off_peak:
+            # j + k to start in the model list from the j + k entry (j has already been assigned)
+            car_model = self.list_models[j + k]
+            try:
+                # Add Electric Vehicles to the scheduler
+                unique_id_off_car = self.get_next_id()
+                car = ElectricVehicleOffpeak(unique_id=unique_id_off_car,
+                                             model=self,
+                                             car_model=car_model,
+                                             start_date=self.start_date,
+                                             end_date=self.end_date,
+                                             target_soc=self.car_target_soc,
+                                             charging_algo=self.car_charging_algo,
+                                             seed_value=self.seed_value)
+
+                self.schedule.add(car)
+
+            except Exception as e:
+                print("Adding agent to model failed.")
+                print(f"Error Message: {e}")
+
+            print("...added normal ev number {} to the model.".format(k))
+            k += 1
+
+        o = 0
+        while o < self.num_customers:
             try:
                 # Add Power Customers to the scheduler
-                unique_id_cust = k + self.num_transformers + self.num_cars
+                unique_id_cust = self.get_next_id()
                 customer = PowerCustomer(unique_id=unique_id_cust,
                                          model=self,
                                          yearly_cons_household=3500,
@@ -106,8 +141,8 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added power customer number {} to the model.".format(i))
-            k += 1
+            print("...added power customer number {} to the model.".format(o))
+            o += 1
 
         self.datacollector = mesa.DataCollector(
             model_reporters={
@@ -122,6 +157,11 @@ class ChargingModel(Model):
                     agent) if agent.type == 'Customer' else {}
             }
         )
+
+    def get_next_id(self):
+        next_id = self.id_counter
+        self.id_counter += 1
+        return next_id
 
     def agent_reporter_car(self, agent):
         return {
@@ -186,10 +226,9 @@ class ChargingModel(Model):
             cars += [name]
             distribution += [data[name]["number"] / total_cars]
 
-        np.random.seed(21)
-        car_models = np.random.choice(cars, size=self.num_cars, p=distribution)
-        # print(len(car_names), "car names generated.")
-
+        np.random.seed(self.seed_value)
+        size = (self.num_cars_normal + self.num_cars_off_peak)
+        car_models = np.random.choice(cars, size=size, p=distribution)
         return car_models
 
     def step(self):
@@ -197,7 +236,3 @@ class ChargingModel(Model):
         if self.schedule.steps > 0:
             self.datacollector.collect(self)
         # print("Step ", self.schedule.steps, " completed.")
-
-
-if __name__ == '__main__':
-    pass

@@ -19,7 +19,15 @@ class ElectricVehicle(Agent):
     # Track already assigned mobility profiles
     picked_mobility_data = []
 
-    def __init__(self, unique_id, model, car_model, start_date: str, end_date: str, target_soc: int, charging_algo: bool):
+    def __init__(self,
+                 unique_id,
+                 model,
+                 car_model,
+                 start_date: str,
+                 end_date: str,
+                 target_soc: int,
+                 charging_algo: bool,
+                 seed_value: int):
 
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
@@ -32,6 +40,7 @@ class ElectricVehicle(Agent):
         self.end_date = pd.to_datetime(end_date)
         self.target_soc = target_soc
         self.charging_algo = charging_algo
+        self.seed_value = seed_value
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -207,8 +216,8 @@ class ElectricVehicle(Agent):
         closest_number = min(df['decile_label'], key=lambda x: abs(x - self.car_size))
         # Get a list of indexes where decile_label is equal to closest_number
         matching_indexes = df.index[df['decile_label'] == closest_number].tolist()
-        # Set seed to always chose the same file
-        random.seed(948)
+        # Set seed value
+        random.seed(self.seed_value)
         # Get a random index from the matching indexes
         random_index = random.choice(matching_indexes)
         # find the car id

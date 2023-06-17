@@ -89,3 +89,39 @@ if plot:
     plt.show()
 
 print(mobility_data_aggregated)
+
+
+#############################
+
+# # black and white
+# plt.style.use('grayscale')
+x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
+x_axis_time = x_axis_time[:-1]
+
+df_results['timestamp'] = x_axis_time
+df_results.set_index('timestamp', inplace=True)
+
+fig, ax = plt.subplots()
+
+df_results.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'], ax=ax)
+
+plt.xlabel('Timestamp')
+plt.ylabel('kW')
+
+ax.set_xticks(df_results.index[::24])
+ax.set_xticklabels(df_results.index[::24].strftime('%d-%m %H:%M'), rotation=90)
+
+lines = ax.get_lines()
+
+linestyles = ['-.', '--', ':', '-']
+for i, line in enumerate(lines):
+    line.set_linestyle(linestyles[i % len(linestyles)])
+
+legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.4), ncol=2, frameon=False)
+
+legend.get_frame().set_facecolor('white')
+
+plt.subplots_adjust(bottom=0.3)
+
+plt.tight_layout()
+plt.show()
