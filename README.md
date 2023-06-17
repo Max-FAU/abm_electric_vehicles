@@ -52,6 +52,20 @@ ID_TERMINAL: The ID of the vehicle<br>
 
 ## Usage
 
+Open `main.py` after setting file paths. <br>
+Define your scenario to simulate.
+
+start_date = '2008-07-13' <br>
+end_date = '2008-07-20' <br>
+model_runs = 1 <br>
+
+num_cars_normal = 1 <br>
+num_cars_off_peak = 0 <br>
+num_transformers = 1 <br>
+num_customers = 1 <br>
+car_target_soc = 100 <br>
+car_charging_algo = False <br>
+
 ## Contribution
 
 ## Credits
