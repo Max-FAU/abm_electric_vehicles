@@ -23,7 +23,7 @@ def median_trip_length(df, car_id):
     trip_df = df.groupby('TRIPNUMBER').sum()
     med_trip_len = trip_df['DELTAPOS'].median()
     len_dict[car_id] = med_trip_len
-    print('Successfully calculated median trip length for car {}.'.format(car_id))
+    print('Successfully calculated median trip length for car id {}.'.format(car_id))
     return len_dict
 
 
@@ -69,7 +69,7 @@ def create_median_trip_length_file(directory_path,
             try:
                 mobility_data = pd.read_csv(file, usecols=['TIMESTAMP', 'TRIPNUMBER', 'DELTAPOS', 'CLUSTER', 'ECONSUMPTIONKWH', 'ID_PANELSESSION', 'ID_TERMINAL'])
                 # Create the dataframe for short time
-                data = MobilityDataAggregator(mobility_data, start_date, end_date)
+                data = MobilityDataAggregator(mobility_data, start_date, end_date, True)
                 # calculate the median trip length and store it in a dict
                 median_trip_dict = median_trip_length(data.df_processed, id_to_check)
                 # Append the car_id with median trip length to dict

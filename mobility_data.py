@@ -3,7 +3,11 @@ import dask.dataframe as dd
 
 
 class MobilityDataAggregator:
-    def __init__(self, raw_mobility_data: pd.DataFrame, start_date: str, end_date: str):
+    def __init__(self,
+                 raw_mobility_data: pd.DataFrame,
+                 start_date: str,
+                 end_date: str):
+
         self.raw_mobility_data = raw_mobility_data
         self.df_limited_time = pd.DataFrame()
         self.df_processed = pd.DataFrame()
@@ -12,22 +16,24 @@ class MobilityDataAggregator:
         self.end_date = pd.to_datetime(end_date)
 
         self.median_trip_length = None
-
         self.prepare_mobility_data()
         self.set_median_trip_len()
 
     def _create_df_limited_time(self):
         raw_mobility_data = self.get_raw_df()
-        raw_start_date = min(self.raw_mobility_data['TIMESTAMP'])
-        raw_end_date = max(self.raw_mobility_data['TIMESTAMP'])
+        # Convert the TIMESTAMP column to timestamp to compare it later
+        raw_mobility_data['TIMESTAMP'] = pd.to_datetime(raw_mobility_data['TIMESTAMP'])
 
-        if raw_start_date > self.start_date:
+        raw_start_date = pd.to_datetime(min(self.raw_mobility_data['TIMESTAMP']))
+        raw_end_date = pd.to_datetime(max(self.raw_mobility_data['TIMESTAMP']))
+
+        if self.start_date < raw_start_date:
             print('Start date: {} is too early for this data set.'.format(raw_start_date))
-        if raw_end_date < self.end_date:
+        if self.end_date > raw_end_date:
             print('End date: {} is too late for this data set.'.format(raw_end_date))
 
         self.df_limited_time = raw_mobility_data.loc[(raw_mobility_data['TIMESTAMP'] >= self.start_date) &
-                                                     (raw_mobility_data['TIMESTAMP'] < self.end_date)].compute()
+                                                     (raw_mobility_data['TIMESTAMP'] < self.end_date)]
 
     def _aggregate_15_min_steps(self):
         # calculate the total energy demand in that 15 minutes
@@ -59,7 +65,7 @@ class MobilityDataAggregator:
         try:
             pd.to_datetime(self.df_processed.index, format=timestamp_format, errors='coerce').notnull().all()
         except ValueError:
-            print("Timestamp index error - it is in wrong format.")
+            print("Timestamp index error - wrong format.")
 
     def prepare_mobility_data(self):
         self._create_df_limited_time()

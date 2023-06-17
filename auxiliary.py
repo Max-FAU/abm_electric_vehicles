@@ -3,7 +3,7 @@ import glob
 import pandas as pd
 from tqdm import tqdm
 from mobility_data import MobilityDataAggregator
-from project_paths import MOBILITY_DATA_DIRECTORY_PATH
+from project_paths import MOBILITY_DATA_DIRECTORY_PATH, INPUT_PATH
 
 
 def read_json_config(keyword):
@@ -50,7 +50,7 @@ def median_trip_length(df, car_id) -> dict:
 
 def is_private_car(unique_id: int):
     """Load the json which indicates if the car is a private car."""
-    with open('input/private_cars.json') as f:
+    with open(INPUT_PATH / 'private_cars.json') as f:
         private_cars = json.load(f)
 
     car_ids = []
@@ -86,7 +86,7 @@ def create_median_trip_length_file(directory_path,
     len_dict = {}
 
     # Loop through all csv files with mobility data
-    for file in tqdm(csv_files):
+    for file in tqdm(csv_files, leave=False):
         id_to_check = int(file.split("_")[-1].replace('.csv', ''))
         if is_private_car(unique_id=id_to_check):
             try:
@@ -94,13 +94,13 @@ def create_median_trip_length_file(directory_path,
                 # Create the dataframe for short time
                 data = MobilityDataAggregator(mobility_data, start_date, end_date)
                 # calculate the median trip length and store it in a dict
-                median_trip_dict = median_trip_length(data.df_processed, id_to_check)
+                median_trip_dict = median_trip_length(data.get_processed_df(), id_to_check)
                 # Append the car_id with median trip length to dict
                 len_dict.update(median_trip_dict)
             except:
-                print("Skipped calculation for car with {}.".format(id_to_check))
+                print("Skipped calculation for car id {}.".format(id_to_check))
         else:
-            print("No calculation for car {}, only private cars considered.".format(id_to_check))
+            print("No calculation for car id {}, only private cars considered.".format(id_to_check))
 
     # sort the dict according to the median trip length and save it afterwards
     sorted_dict = dict(sorted(len_dict.items(), key=lambda item: item[1]))

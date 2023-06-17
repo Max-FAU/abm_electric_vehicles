@@ -7,7 +7,6 @@ import datetime
 from mobility_data import MobilityDataAggregator
 from agents.customer_agent import PowerCustomer
 from agents.transformer_agent import Transformer
-import dask.dataframe as dd
 from project_paths import CAR_VALUES_PATH, MEDIAN_TRIP_LEN_PATH
 
 
@@ -248,7 +247,7 @@ class ElectricVehicle(Agent):
                   'ID_TERMINAL': int}
 
         # Read only used columns to speed up data reading
-        raw_mobility_data = dd.read_csv(file_path,
+        raw_mobility_data = pd.read_csv(file_path,
                                         usecols=cols,
                                         dtype=dtypes,
                                         parse_dates=['TIMESTAMP'])

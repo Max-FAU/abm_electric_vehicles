@@ -10,13 +10,13 @@ import numpy as np
 if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
-    end_date = '2008-07-20'
-    model_runs = 2
+    end_date = '2008-07-27'
+    model_runs = 1
 
-    num_cars_normal = 2
-    num_cars_off_peak = 2
+    num_cars_normal = 100
+    num_cars_off_peak = 0
     num_transformers = 1
-    num_customers = 4
+    num_customers = 100
     car_target_soc = 100
     car_charging_algo = False
 
