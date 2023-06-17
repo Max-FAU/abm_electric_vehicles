@@ -11,7 +11,9 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-20'
-    num_agents = 2
+    num_cars = 2
+    num_transformers = 1
+    num_customers = 2
     model_runs = 2
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
@@ -21,7 +23,9 @@ if __name__ == '__main__':
     # Run the whole model multiple times
     for i in range(model_runs):
         print("Start iteration {} of model runs...".format(i + 1))
-        model = ChargingModel(num_agents,
+        model = ChargingModel(num_cars,
+                              num_transformers,
+                              num_customers,
                               start_date,
                               end_date)
 
@@ -43,7 +47,6 @@ if __name__ == '__main__':
 
     # # black and white
     # plt.style.use('grayscale')
-
     x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
     x_axis_time = x_axis_time[:-1]
 

@@ -19,7 +19,7 @@ class ElectricVehicle(Agent):
     # Track already assigned mobility profiles
     picked_mobility_data = []
 
-    def __init__(self, unique_id, model, car_model, start_date, end_date, target_soc, charging_algo):
+    def __init__(self, unique_id, model, car_model, start_date: str, end_date: str, target_soc: int, charging_algo: bool):
 
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
@@ -31,7 +31,7 @@ class ElectricVehicle(Agent):
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
         self.target_soc = target_soc
-        self.charging_algo = False
+        self.charging_algo = charging_algo
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -852,18 +852,6 @@ class ElectricVehicle(Agent):
             if all_agents_ids[-1] == current_agent_id:
                 # Calculate how much capacity is available for charging cars after household base load
                 self.interaction_charging_values()
-
-        # print("charging_power_station: {}, "
-        #       "charging_power_car: {}, "
-        #       "soc {}, "
-        #       "battery {}, "
-        #       "final {},"
-        #       "battery lvl {}".format(self.charging_power_station,
-        #                               self.charging_power_car,
-        #                               self.empty_battery_capacity_soc(),
-        #                               self.empty_battery_capacity(),
-        #                               self.get_charging_value(),
-        #                               self.get_battery_level()))
 
 
 if __name__ == '__main__':

@@ -13,7 +13,10 @@ from project_paths import CAR_VALUES_PATH
 
 
 class ChargingModel(Model):
-    def __init__(self, num_agents: int,
+    def __init__(self,
+                 num_cars: int,
+                 num_transformers: int,
+                 num_customers: int,
                  start_date: str,
                  end_date: str):
         """
@@ -28,10 +31,11 @@ class ChargingModel(Model):
         self.end_date = pd.to_datetime(end_date)
 
         self.schedule = mesa.time.SimultaneousActivation(self)
-        assert num_agents <= 698, "Only 698 agents are possible"
-        self.num_agents = num_agents
+        assert num_cars <= 698, "Only 698 agents are possible"
+        self.num_cars = num_cars
         self.list_models = self.generate_cars_according_to_dist()
-        # self.list_models = self.generate_test_cars()
+        self.num_transformers = num_transformers
+        self.num_customers = num_customers
 
         # Return the peak load of one customer, is not added to the scheduler
         transformer_sizing = PowerCustomer(unique_id=None,
@@ -43,20 +47,32 @@ class ChargingModel(Model):
         transformer_sizing.initialize_customer()
         peak_load = transformer_sizing.get_peak_load_kw()
 
-        # Size the transformer according to peak load and add to scheduler
-        transformer = Transformer(unique_id=9999,
-                                  model=self,
-                                  num_households=num_agents,
-                                  peak_load=peak_load)
+        j = 0
+        while j < self.num_transformers:
+            try:
+                # Size the transformer according to peak load and add to scheduler
+                unique_id_trans = j
+                transformer = Transformer(unique_id=unique_id_trans,
+                                          model=self,
+                                          num_households=num_customers,
+                                          peak_load=peak_load)
 
-        self.schedule.add(transformer)
+                self.schedule.add(transformer)
+
+            except Exception as e:
+                print("Adding agent to model failed.")
+                print(f"Error Message: {e}")
+
+            print("...added transformer number {} to the model.".format(j))
+            j += 1
 
         i = 0
-        while i < self.num_agents:
+        while i < self.num_cars:
             car_model = self.list_models[i]
             try:
                 # Add Electric Vehicles to the scheduler
-                car = ElectricVehicle(unique_id=i,
+                unique_id_car = i + self.num_transformers
+                car = ElectricVehicle(unique_id=unique_id_car,
                                       model=self,
                                       car_model=car_model,
                                       start_date=self.start_date,
@@ -64,21 +80,34 @@ class ChargingModel(Model):
                                       target_soc=100,
                                       charging_algo=False)
 
+                self.schedule.add(car)
+
+            except Exception as e:
+                print("Adding agent to model failed.")
+                print(f"Error Message: {e}")
+
+            print("...added electric vehicle number {} to the model.".format(i))
+            i += 1
+
+        k = 0
+        while k < self.num_customers:
+            try:
                 # Add Power Customers to the scheduler
-                customer = PowerCustomer(unique_id=i + self.num_agents,
+                unique_id_cust = k + self.num_transformers + self.num_cars
+                customer = PowerCustomer(unique_id=unique_id_cust,
                                          model=self,
                                          yearly_cons_household=3500,
                                          start_date=start_date,
                                          end_date=end_date)
 
                 self.schedule.add(customer)
-                self.schedule.add(car)
+
             except Exception as e:
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added agent number {} to the model.".format(i))
-            i += 1
+            print("...added power customer number {} to the model.".format(i))
+            k += 1
 
         self.datacollector = mesa.DataCollector(
             model_reporters={
@@ -143,16 +172,6 @@ class ChargingModel(Model):
                 capacity_kw += agent.capacity_kw
         return capacity_kw
 
-    def generate_test_cars(self):
-        file_path = 'car_models.txt'
-        car_models = []
-        with open(file_path, 'r') as file:
-            lines = file.readlines()
-            for line in lines:
-                value = line.strip()
-                car_models.append(value)
-        return car_models
-
     def generate_cars_according_to_dist(self):
         with open(CAR_VALUES_PATH, 'r') as f:
             data = json.load(f)
@@ -168,9 +187,7 @@ class ChargingModel(Model):
             distribution += [data[name]["number"] / total_cars]
 
         np.random.seed(21)
-        car_models = np.random.choice(cars, size=self.num_agents, p=distribution)
-        # timestamp_now = datetime.datetime.now()
-        # np.savetxt('results/car_models_' + str(timestamp_now) + '.txt', car_models, fmt='%s', delimiter=' ')
+        car_models = np.random.choice(cars, size=self.num_cars, p=distribution)
         # print(len(car_names), "car names generated.")
 
         return car_models
@@ -183,65 +200,4 @@ class ChargingModel(Model):
 
 
 if __name__ == '__main__':
-    import time
-    from tqdm import tqdm
-    start_time = time.time()
-
-    start_date = '2008-07-13'
-    end_date = '2008-07-20'
-
-    time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
-    num_intervals = int(time_diff / datetime.timedelta(minutes=15))
-
-    model = ChargingModel(num_agents=2,
-                          start_date=start_date,
-                          end_date=end_date)
-
-    for i in tqdm(range(num_intervals)):
-        model.step()
-
-    model_data = model.datacollector.get_model_vars_dataframe()
-    agent_data = model.datacollector.get_agent_vars_dataframe()
-
-    model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
-
-    import matplotlib.pyplot as plt
-
-    # # black and white
-    # plt.style.use('grayscale')
-
-    x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
-    x_axis_time = x_axis_time[:-1]
-
-
-    model_data['timestamp'] = x_axis_time
-    model_data.set_index('timestamp', inplace=True)
-
-    fig, ax = plt.subplots()
-
-    model_data.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'], ax=ax)
-
-    plt.xlabel('Timestamp')
-    plt.ylabel('kW')
-
-    ax.set_xticks(model_data.index[::24])
-    ax.set_xticklabels(model_data.index[::24].strftime('%d-%m %H:%M'), rotation=90)
-
-    lines = ax.get_lines()
-
-    linestyles = ['-.', '--', ':', '-']
-    for i, line in enumerate(lines):
-        line.set_linestyle(linestyles[i % len(linestyles)])
-
-    legend = ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.4), ncol=2, frameon=False)
-
-    legend.get_frame().set_facecolor('white')
-
-    plt.subplots_adjust(bottom=0.3)
-
-    plt.tight_layout()
-    plt.show()
-
-    agent_data.to_csv('results/agent_data.csv')
-
-    print("%s seconds" % (time.time() - start_time))
+    pass
