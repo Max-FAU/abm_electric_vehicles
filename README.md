@@ -51,9 +51,9 @@ ID_PANELSESSION: Is holding a value for each state of the electric vehicle 0=ign
 ID_TERMINAL: The ID of the vehicle<br>
 
 ## Usage
-
+### Run in IDE
 Open `main.py` after setting file paths. <br>
-Define your scenario to simulate.
+Define your scenario to simulate. <br>
 
 start_date = '2008-07-13' <br>
 end_date = '2008-07-20' <br>
@@ -66,6 +66,22 @@ num_customers = 1 <br>
 car_target_soc = 100 <br>
 car_charging_algo = False <br>
 
+### Run in command line terminal
+To run the simulation in your command line terminal. <br>
+Open in windows `cmd` <br>
+Navigate to the directory where `main.py` file is located. <br>
+Use your python interpreter in your virtual environment to have all packages. <br>
+
+Run following command (created a virtual environment in PycharmProjects\mesa):<br>
+`C:\Users\USERNAME\PycharmProjects\mesa\venv\Scripts\python.exe main.py --num_cars_normal 100 --num_cars_off_peak 0 --num_transformers 1 --num_customers 100`
+
+Note you have following args to pass:<br>
+`--num_cars_normal`<br>
+`--num_cars_off_peak`<br>
+`--num_transformers`<br>
+`--num_customers`<br>
+
+
 ## Contribution
 
 ## Credits
@@ -73,3 +89,4 @@ car_charging_algo = False <br>
 ## License
 
 ## Contact
+maximilian.brueggemann@fau.de
