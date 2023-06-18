@@ -258,7 +258,6 @@ class ElectricVehicle(Agent):
 
         return data_aggregator.df_processed
 
-    # TODO CHECK IF ALL TIMESTAMPS ARE PRESENT IN THE MOBILITY_DATA_FILE IF NOT RUN THE ADD MOBILITY DATA AGAIN
     def add_mobility_data(self):
         """Function to assign the correct mobility file to a car and load it afterwards."""
         # Load a matching file, it will be generated and then loaded, if not existing
@@ -274,48 +273,58 @@ class ElectricVehicle(Agent):
         # self.mobility_data.to_csv("mobility_test_data.csv")
         # self.mobility_data = self.load_mobility_data('mobility_test_data.csv')
 
+    def get_panel_session(self):
+        return self.panel_session
+
     def set_consumption_to_next_charge(self):
         """
-        Next trip is not defined by trip number but on leaving a charger and reaching a new charger.
+        Next trip is not defined by trip number instead it is defined by
+        leaving a charger and reaching a new charger. (Cluster 1 or 2)
         No public chargers considered here.
         """
-        # Create copy of dataframe
-        mobility_data = self.mobility_data.copy()
-        # slice the mobility data from current timestamp until rest of mobility data
-        df_slice = mobility_data.loc[self.timestamp:]
-        block_sum = 0
-        for i in range(len(df_slice)):  # iterate over every entry in the slice
-            if df_slice.iloc[i]['CLUSTER'] == 0:   # check if the 'CLUSTER' is 0
-                # Add the 'ECONSUMPTION' to the block_sum if it is 0
-                block_sum += df_slice.iloc[i]['ECONSUMPTIONKWH']
-            # if the CLUSTER is not 0 check the block_sum, if it holds a value
-            if df_slice.iloc[i]['CLUSTER'] != 0 and block_sum != 0:
-                # set the consumption to next charge to block sum
-                self.consumption_to_next_charge = block_sum
-                break     # break the loop
+        id_panel = self.get_panel_session()
+        mobility_data = self.get_mobility_data()
+        if id_panel == 0:
+            # get the sum of consumption values of the next block where in id_panel_session is a 0
+            # first entry where index is not equal to 0
+            next_block_start = mobility_data.loc[self.timestamp:, 'ID_PANELSESSION'].ne(0).idxmax()
+            # first entry where index is equal 0 again
+            next_block_end = mobility_data.loc[next_block_start:, 'ID_PANELSESSION'].eq(0).idxmax()
 
-        else:   # if none of the condition in the loop is met
-            self.consumption_to_next_charge = 0
+            next_charge = mobility_data.loc[next_block_start:next_block_end, 'ECONSUMPTIONKWH'].sum()
+            self.consumption_to_next_charge = next_charge
+        else:
+            next_charge = 0
+            self.consumption_to_next_charge = next_charge
 
     def get_consumption_to_next_charge(self):
         return self.consumption_to_next_charge
 
     def set_charging_duration(self):
+        id_panel = self.get_panel_session()
         mobility_data = self.get_mobility_data()
+        if id_panel == 0:
+            # first entry where index is equal to 0
+            next_block_start = mobility_data.loc[self.timestamp:, 'ID_PANELSESSION'].eq(0).idxmax()
+            # first entry where index is not equal 0 again
+            next_block_end = mobility_data.loc[next_block_start:, 'ID_PANELSESSION'].ne(0).idxmax()
+            charging_time = mobility_data.loc[next_block_start:next_block_end]
 
-        current_timestamp = self.timestamp
-        df_slice = mobility_data.loc[current_timestamp:]
-        cluster_changes = df_slice[df_slice['CLUSTER'].eq(0)]
+            # check if trip number is the max trip number in mobility dataframe
+            # if this is the case, use last_block_end
+            current_trip_id = self.get_current_trip_id()
+            last_trip_id = self.get_last_trip_id()
 
-        if not cluster_changes.empty:
-            next_cluster_change = cluster_changes.index[-1]
+            if current_trip_id == last_trip_id:
+                last_block_end = mobility_data.index[-1]
+                charging_time = mobility_data.loc[next_block_start:last_block_end]
+
+            duration = charging_time.index.max() - charging_time.index.min()
+            duration = duration.total_seconds() / 3600
+            self.charging_duration = duration
         else:
-            next_cluster_change = df_slice.index[-1]
-            # duration = pd.Timedelta('0 days 00:00:00')
-        duration = next_cluster_change - current_timestamp
-        duration_minutes = duration.total_seconds() / 60
-        duration_hours = duration_minutes / 60
-        self.charging_duration = duration_hours
+            duration = 0
+            self.charging_duration = duration
 
     def get_charging_duration(self):
         return self.charging_duration
@@ -555,6 +564,7 @@ class ElectricVehicle(Agent):
     def get_charging_power_car(self):
         return self.charging_power_car
 
+    # TODO create JSON Input file to change charging power
     def set_charging_power_station(self):
         cluster = self.get_cluster()
         home = 11

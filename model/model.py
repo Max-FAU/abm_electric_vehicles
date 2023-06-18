@@ -165,6 +165,7 @@ class ChargingModel(Model):
 
     def agent_reporter_car(self, agent):
         return {
+            "car_id": agent.car_id,
             "timestamp": agent.timestamp,
             "recharge_value": agent.charging_value,
             "battery_level": agent.battery_level,

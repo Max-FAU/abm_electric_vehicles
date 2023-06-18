@@ -13,17 +13,17 @@ if __name__ == '__main__':
     end_date = '2008-07-20'
     model_runs = 1
 
-    num_cars_normal = 1
+    num_cars_normal = 20
     num_cars_off_peak = 0
     num_transformers = 1
-    num_customers = 1
+    num_customers = 20
     car_target_soc = 100
     car_charging_algo = False
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    model_results = []
+    # model_results = []
     # Run the whole model multiple times
     for i in tqdm(range(model_runs), desc='Model Runs', leave=True, position=0):
         # Create each iteration of the model a new seed value
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         model_data = model.datacollector.get_model_vars_dataframe()
         model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
         model_data.to_csv(RESULT_PATH / "results_run_{}_model_data.csv".format(i), index=False)
-        model_results.append(model_data)
+        # model_results.append(model_data)
 
         agent_data = model.datacollector.get_agent_vars_dataframe()
         agent_data.to_csv(RESULT_PATH / "results_run_{}_agent_data.csv".format(i), index=False)
@@ -53,13 +53,13 @@ if __name__ == '__main__':
         with open(RESULT_PATH / "seed_run_{}.txt".format(i), "w") as file:
             file.write(str(seed_value))
 
-    df_concat = pd.concat(model_results)
-    df_results = df_concat.groupby(df_concat.index).mean()
-    df_results.to_csv(RESULT_PATH / "results_all_runs.csv", index=False)
+    # df_concat = pd.concat(model_results)
+    # df_results = df_concat.groupby(df_concat.index).mean()
+    # df_results.to_csv(RESULT_PATH / "results_all_runs.csv", index=False)
 
     end = timeit.default_timer()
     run_time = end - start
     print(f"Total run time: {run_time / 60} minutes")
-
-    from depreciated.plot import create_plot
-    create_plot(start_date, end_date, df_results)
+    #
+    # from depreciated.plot import create_plot
+    # create_plot(start_date, end_date, df_results)
