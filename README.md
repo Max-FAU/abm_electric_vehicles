@@ -25,6 +25,10 @@ File is structured as follows:<br>
     "number": 30000<br>
 }<br>
 
+#### power_station_values.json
+Having a dict with three different charging values, possible to be delivered by charging stations. <br>
+Depending on the location they have a different power they could charge with.
+
 #### h0_profile.csv
 Represents a standard load profile of a private customer.<br>
 The csv file is taken from BDEW<br>
