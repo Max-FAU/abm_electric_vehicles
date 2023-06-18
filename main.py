@@ -11,15 +11,16 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-27'
-    model_runs = 1
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
+    parser.add_argument('--model_runs', type=int, default=1, help='Number of model runs')
     parser.add_argument('--num_cars_normal', type=int, default=2, help='Number of normal cars')
     parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
     parser.add_argument('--num_customers', type=int, default=2, help='Number of customers')
     args = parser.parse_args()
 
+    model_runs = args.model_runs
     num_cars_normal = args.num_cars_normal
     num_cars_off_peak = args.num_cars_off_peak
     num_transformers = args.num_transformers
