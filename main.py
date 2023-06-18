@@ -13,29 +13,30 @@ if __name__ == '__main__':
     end_date = '2008-07-27'
     model_runs = 1
 
-    parser = argparse.ArgumentParser(description='Description of your script')
-    parser.add_argument('--num_cars_normal', type=int, default=100, help='Number of normal cars')
+    parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
+    parser.add_argument('--num_cars_normal', type=int, default=20, help='Number of normal cars')
     parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
-    parser.add_argument('--num_customers', type=int, default=100, help='Number of customers')
+    parser.add_argument('--num_customers', type=int, default=20, help='Number of customers')
+    parser.add_argument('--charging_algo', type=bool, default=False, help='Activate charging algorithm')
     args = parser.parse_args()
 
     num_cars_normal = args.num_cars_normal
     num_cars_off_peak = args.num_cars_off_peak
     num_transformers = args.num_transformers
     num_customers = args.num_customers
+    car_charging_algo = args.charging_algo
 
     car_target_soc = 100
-    car_charging_algo = False
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
-    # model_results = []
+    model_results = []
     # Run the whole model multiple times
     for i in tqdm(range(model_runs), desc='Model Runs', leave=True, position=0):
         # Create each iteration of the model a new seed value
-        seed_value = np.random.randint(low=0, high=99999)
+        seed_value = np.random.randint(low=0, high=9999)
 
         model = ChargingModel(num_cars_normal,
                               num_cars_off_peak,
@@ -53,7 +54,7 @@ if __name__ == '__main__':
         model_data = model.datacollector.get_model_vars_dataframe()
         model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
         model_data.to_csv(RESULT_PATH / "results_run_{}_model_data.csv".format(i), index=False)
-        # model_results.append(model_data)
+        model_results.append(model_data)
 
         agent_data = model.datacollector.get_agent_vars_dataframe()
         agent_data.to_csv(RESULT_PATH / "results_run_{}_agent_data.csv".format(i), index=False)
@@ -61,13 +62,13 @@ if __name__ == '__main__':
         with open(RESULT_PATH / "seed_run_{}.txt".format(i), "w") as file:
             file.write(str(seed_value))
 
-    # df_concat = pd.concat(model_results)
-    # df_results = df_concat.groupby(df_concat.index).mean()
-    # df_results.to_csv(RESULT_PATH / "results_all_runs.csv", index=False)
+    df_concat = pd.concat(model_results)
+    df_results = df_concat.groupby(df_concat.index).mean()
+    df_results.to_csv(RESULT_PATH / "results_all_runs.csv", index=False)
 
     end = timeit.default_timer()
     run_time = end - start
     print(f"Total run time: {run_time / 60} minutes")
     #
-    # from depreciated.plot import create_plot
-    # create_plot(start_date, end_date, df_results)
+    from depreciated.plot import create_plot
+    create_plot(start_date, end_date, df_results)

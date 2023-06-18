@@ -242,8 +242,10 @@ class ElectricVehicleOffpeak(ElectricVehicle):
             # Start the interaction
             all_agents = self.model.schedule.agents
             all_agents_ids = []
-            for agent in all_agents:
-                all_agents_ids += [agent.get_unique_id()]
+            for electric_vehicle in all_agents:
+                if isinstance(electric_vehicle, ElectricVehicleOffpeak):
+                    all_agents_ids.append(electric_vehicle.get_unique_id())
+
             current_agent_id = self.get_unique_id()
             # Check if current agent id is the last id in list of ids of scheduled agents then interact
             if all_agents_ids[-1] == current_agent_id:

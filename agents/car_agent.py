@@ -276,57 +276,47 @@ class ElectricVehicle(Agent):
     def get_panel_session(self):
         return self.panel_session
 
-    # TODO CHANGE TO CLUSTER
     def set_consumption_to_next_charge(self):
         """
         Next trip is not defined by trip number instead it is defined by
-        leaving a charger and reaching a new charger. (Cluster 1 or 2)
+        leaving a charger and reaching a new charger (Cluster 1 or 2).
         No public chargers considered here.
         """
         id_panel = self.get_panel_session()
         mobility_data = self.get_mobility_data()
-        if id_panel == 0:
-            # get the sum of consumption values of the next block where in id_panel_session is a 0
-            # first entry where index is not equal to 0
-            next_block_start = mobility_data.loc[self.timestamp:, 'ID_PANELSESSION'].ne(0).idxmax()
-            # first entry where index is equal 0 again
-            next_block_end = mobility_data.loc[next_block_start:, 'ID_PANELSESSION'].eq(0).idxmax()
-
-            next_charge = mobility_data.loc[next_block_start:next_block_end, 'ECONSUMPTIONKWH'].sum()
-            self.consumption_to_next_charge = next_charge
+        cluster = self.get_cluster()
+        # cluster indicates if the car is at home, work or somewhere else
+        # panel session if the car is driving, ignition, or turning engine off
+        # cluster 1 = home, cluster 2 = work
+        if cluster == 1 and id_panel == 0 or cluster == 2 and id_panel == 0:
+            # We are interested in the consumption the next trip has
+            # A new possibility to charge always occurs when the car is not driving and when the car is at home or work
+            next_block = (mobility_data['CLUSTER'].ne(1) & mobility_data['CLUSTER'].ne(2) & mobility_data['ID_PANELSESSION'].ne(0)).idxmax()
+            next_trip_consumption = mobility_data.loc[next_block:, 'ECONSUMPTIONKWH'].sum()
+            self.consumption_to_next_charge = next_trip_consumption
         else:
-            next_charge = 0
-            self.consumption_to_next_charge = next_charge
+            self.consumption_to_next_charge = 0
 
     def get_consumption_to_next_charge(self):
         return self.consumption_to_next_charge
 
-    # TODO CHANGE TO CLUSTER
     def set_charging_duration(self):
         id_panel = self.get_panel_session()
+        cluster = self.get_cluster()
         mobility_data = self.get_mobility_data()
-        if id_panel == 0:
-            # first entry where index is equal to 0
+
+        # Find block in the mobility data where id panel is 0 and cluster is 1 or 2
+        # Means the car is not driving and is at a home or work location
+        if (id_panel == 0 and cluster == 1) or (id_panel == 0 and cluster == 2):
             next_block_start = mobility_data.loc[self.timestamp:, 'ID_PANELSESSION'].eq(0).idxmax()
-            # first entry where index is not equal 0 again
             next_block_end = mobility_data.loc[next_block_start:, 'ID_PANELSESSION'].ne(0).idxmax()
             charging_time = mobility_data.loc[next_block_start:next_block_end]
-
-            # check if trip number is the max trip number in mobility dataframe
-            # if this is the case, use last_block_end
-            current_trip_id = self.get_current_trip_id()
-            last_trip_id = self.get_last_trip_id()
-
-            if current_trip_id == last_trip_id:
-                last_block_end = mobility_data.index[-1]
-                charging_time = mobility_data.loc[next_block_start:last_block_end]
-
+            # Calculate the duration
             duration = charging_time.index.max() - charging_time.index.min()
             duration = duration.total_seconds() / 3600
             self.charging_duration = duration
         else:
-            duration = 0
-            self.charging_duration = duration
+            self.charging_duration = 0
 
     def get_charging_duration(self):
         return self.charging_duration
@@ -537,6 +527,16 @@ class ElectricVehicle(Agent):
                                       real_charging_value_car,
                                       real_charging_value_station)
 
+        debug = False
+        if debug:
+            print("empty_battery_capacity: {} "
+                  "possible_soc_capacity {} "
+                  "real_charging_value_car {} "
+                  "real_charging_value_station {} ".format(empty_battery_capacity,
+                                                          possible_soc_capacity,
+                                                          real_charging_value_car,
+                                                          real_charging_value_station))
+
         return possible_charging_value
 
     def get_cluster(self):
@@ -612,10 +612,9 @@ class ElectricVehicle(Agent):
         consumption_next_trip = self.get_consumption_to_next_charge()
         consumption_next_trip_range_anx = self.get_consumption_with_range_anxiety(consumption_next_trip)
         battery_capacity = self.get_battery_capacity()
-
         # Calculate the consumption next trip related to the battery capacity
         # Next trip needs a large amount of battery capacity then prioritize charging
-        relative_need = round(consumption_next_trip_range_anx / battery_capacity * 100, 0)
+        relative_need = consumption_next_trip_range_anx / battery_capacity
 
         if relative_need <= 20:
             prio_next_trip = 1
@@ -697,7 +696,6 @@ class ElectricVehicle(Agent):
 
         # kw total charging power
         total_charging_power = aux.convert_kw_kwh(kwh=total_charging_value)
-
         all_priorities = []
         for prio in electric_vehicles:
             all_priorities.append(prio.get_charging_priority())
@@ -857,7 +855,6 @@ class ElectricVehicle(Agent):
         self.set_charging_power_station()
 
         self.set_all_charging_values()
-        # self.calc_charging_value()
         self.charge()
         self.set_car_charging_priority()
 
@@ -865,10 +862,14 @@ class ElectricVehicle(Agent):
             # Check if the step is done for the last agent in model
             # Start the interaction
             all_agents = self.model.schedule.agents
+
             all_agents_ids = []
-            for agent in all_agents:
-                all_agents_ids += [agent.get_unique_id()]
+            for electric_vehicle in all_agents:
+                if isinstance(electric_vehicle, ElectricVehicle):
+                    all_agents_ids.append(electric_vehicle.get_unique_id())
+
             current_agent_id = self.get_unique_id()
+
             # Check if current agent id is the last id in list of ids of scheduled agents then interact
             if all_agents_ids[-1] == current_agent_id:
                 # Calculate how much capacity is available for charging cars after household base load

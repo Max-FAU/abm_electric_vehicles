@@ -75,6 +75,26 @@ class ChargingModel(Model):
             print("...added transformer number {} to the model.".format(i+1))
             i += 1
 
+        o = 0
+        while o < self.num_customers:
+            try:
+                # Add Power Customers to the scheduler
+                unique_id_cust = self.get_next_id()
+                customer = PowerCustomer(unique_id=unique_id_cust,
+                                         model=self,
+                                         yearly_cons_household=3500,
+                                         start_date=start_date,
+                                         end_date=end_date)
+
+                self.schedule.add(customer)
+
+            except Exception as e:
+                print("Adding agent to model failed.")
+                print(f"Error Message: {e}")
+
+            print("...added power customer number {} to the model.".format(o+1))
+            o += 1
+
         j = 0
         while j < self.num_cars_normal:
             car_model = self.list_models[j]
@@ -121,28 +141,8 @@ class ChargingModel(Model):
                 print("Adding agent to model failed.")
                 print(f"Error Message: {e}")
 
-            print("...added normal ev number {} to the model.".format(k+1))
+            print("...added off peak ev number {} to the model.".format(k+1))
             k += 1
-
-        o = 0
-        while o < self.num_customers:
-            try:
-                # Add Power Customers to the scheduler
-                unique_id_cust = self.get_next_id()
-                customer = PowerCustomer(unique_id=unique_id_cust,
-                                         model=self,
-                                         yearly_cons_household=3500,
-                                         start_date=start_date,
-                                         end_date=end_date)
-
-                self.schedule.add(customer)
-
-            except Exception as e:
-                print("Adding agent to model failed.")
-                print(f"Error Message: {e}")
-
-            print("...added power customer number {} to the model.".format(o+1))
-            o += 1
 
         self.datacollector = mesa.DataCollector(
             model_reporters={
