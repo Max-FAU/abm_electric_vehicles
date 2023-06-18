@@ -276,6 +276,7 @@ class ElectricVehicle(Agent):
     def get_panel_session(self):
         return self.panel_session
 
+    # TODO CHANGE TO CLUSTER
     def set_consumption_to_next_charge(self):
         """
         Next trip is not defined by trip number instead it is defined by
@@ -300,6 +301,7 @@ class ElectricVehicle(Agent):
     def get_consumption_to_next_charge(self):
         return self.consumption_to_next_charge
 
+    # TODO CHANGE TO CLUSTER
     def set_charging_duration(self):
         id_panel = self.get_panel_session()
         mobility_data = self.get_mobility_data()
