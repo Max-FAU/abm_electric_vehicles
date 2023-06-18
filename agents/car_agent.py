@@ -7,7 +7,7 @@ import datetime
 from mobility_data import MobilityDataAggregator
 from agents.customer_agent import PowerCustomer
 from agents.transformer_agent import Transformer
-from project_paths import CAR_VALUES_PATH, MEDIAN_TRIP_LEN_PATH
+from project_paths import CAR_VALUES_PATH, MEDIAN_TRIP_LEN_PATH, CHARGER_VALUE_PATH
 
 
 class ElectricVehicle(Agent):
@@ -566,18 +566,18 @@ class ElectricVehicle(Agent):
     def get_charging_power_car(self):
         return self.charging_power_car
 
-    # TODO create JSON Input file to change charging power
     def set_charging_power_station(self):
+        with open(CHARGER_VALUE_PATH) as f:
+            charging_stations_dict = json.load(f)
+
         cluster = self.get_cluster()
-        home = 11
-        work = 22
-        public = 55  # or 22
+
         if cluster == 1:
-            self.charging_power_station = home
+            self.charging_power_station = charging_stations_dict['home']
         elif cluster == 2:
-            self.charging_power_station = work
+            self.charging_power_station = charging_stations_dict['work']
         else:
-            self.charging_power_station = public
+            self.charging_power_station = charging_stations_dict['public']
 
     def get_charging_power_station(self):
         return self.charging_power_station

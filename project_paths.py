@@ -9,6 +9,7 @@ H0_FILE_PATH = INPUT_PATH / 'h0_profile.csv'
 H0_CLEANED_FILE_PATH = INPUT_PATH / 'cleaned_h0_profile.csv'
 
 CAR_VALUES_PATH = INPUT_PATH / 'car_values.json'
+CHARGER_VALUE_PATH = INPUT_PATH / 'power_station_values.json'
 TRANSFORMER_VALUES_PATH = INPUT_PATH / 'single_phase_transformers.json'
 MEDIAN_TRIP_LEN_PATH = INPUT_PATH / 'median_trip_length.csv'
 
