@@ -14,18 +14,18 @@ if __name__ == '__main__':
     model_runs = 1
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
-    parser.add_argument('--num_cars_normal', type=int, default=20, help='Number of normal cars')
+    parser.add_argument('--num_cars_normal', type=int, default=2, help='Number of normal cars')
     parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
-    parser.add_argument('--num_customers', type=int, default=20, help='Number of customers')
-    parser.add_argument('--charging_algo', type=bool, default=False, help='Activate charging algorithm')
+    parser.add_argument('--num_customers', type=int, default=2, help='Number of customers')
     args = parser.parse_args()
 
     num_cars_normal = args.num_cars_normal
     num_cars_off_peak = args.num_cars_off_peak
     num_transformers = args.num_transformers
     num_customers = args.num_customers
-    car_charging_algo = args.charging_algo
+
+    car_charging_algo = True
 
     car_target_soc = 100
 
