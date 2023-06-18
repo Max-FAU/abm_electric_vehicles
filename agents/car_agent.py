@@ -888,6 +888,3 @@ if __name__ == '__main__':
                             target_soc=100,
                             max_transformer_capacity=20,
                             power_customer=customer)
-
-    # TODO überprüfen
-    agent.set_consumption_to_next_charge()
