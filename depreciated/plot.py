@@ -95,7 +95,7 @@ import pandas as pd
 
 #############################
 
-def create_plot(start_date, end_date, df_results: pd.DataFrame):
+def create_plot(start_date, end_date, df_results: pd.DataFrame, title):
     # # black and white
     # plt.style.use('grayscale')
     x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
@@ -124,6 +124,7 @@ def create_plot(start_date, end_date, df_results: pd.DataFrame):
 
     legend.get_frame().set_facecolor('white')
 
+    plt.title(title)
     plt.subplots_adjust(bottom=0.3)
 
     plt.tight_layout()
