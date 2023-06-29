@@ -11,16 +11,41 @@ class ElectricVehicleOffpeak(ElectricVehicle):
         super().__init__(unique_id, model, car_model, start_date, end_date, target_soc, charging_algo, seed_value)
         self.start_off_peak = pd.to_datetime('22:00:00')
         self.end_off_peak = pd.to_datetime('06:00:00')
+        self.saturday_off_peak = pd.to_datetime('13:00:00')
         self.off_peak = False
 
     def set_off_peak(self):
+        """
+        Takes HT and NT times from Bayernwerke Netz.
+        https://www.bayernwerk-netz.de/de/energie-anschliessen/netznutzung-strom/schwachlastregelung.html
+
+        NT is weekdays from 22:00 - 06:00
+        NT is saturday from 13:00, and complete sunday
+        """
         start = self.start_off_peak.hour
         end = self.end_off_peak.hour
+        saturday_start = self.saturday_off_peak.hour
 
         if self.timestamp.hour >= start or self.timestamp.hour < end:
             self.off_peak = True
         else:
             self.off_peak = False
+
+        if self.timestamp.weekday() == 5:
+            "Saturday"
+            if self.timestamp.hour >= saturday_start or self.timestamp.hour < end:
+                self.off_peak = True
+            else:
+                self.off_peak = False
+        elif self.timestamp.weekday() == 6:
+            "Sunday"
+            self.off_peak = True
+        else:
+            "normal day"
+            if self.timestamp.hour >= start or self.timestamp.hour < end:
+                self.off_peak = True
+            else:
+                self.off_peak = False
 
     def get_off_peak(self):
         return self.off_peak

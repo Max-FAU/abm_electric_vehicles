@@ -13,11 +13,11 @@ if __name__ == '__main__':
     end_date = '2008-07-27'
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
-    parser.add_argument('--model_runs', type=int, default=1, help='Number of model runs')
-    parser.add_argument('--num_cars_normal', type=int, default=2, help='Number of normal cars')
-    parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
+    parser.add_argument('--model_runs', type=int, default=30, help='Number of model runs')
+    parser.add_argument('--num_cars_normal', type=int, default=0, help='Number of normal cars')
+    parser.add_argument('--num_cars_off_peak', type=int, default=25, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
-    parser.add_argument('--num_customers', type=int, default=2, help='Number of customers')
+    parser.add_argument('--num_customers', type=int, default=25, help='Number of customers')
     args = parser.parse_args()
 
     model_runs = args.model_runs
@@ -72,4 +72,4 @@ if __name__ == '__main__':
     print(f"Total run time: {run_time / 60} minutes")
     #
     from depreciated.plot import create_plot
-    create_plot(start_date, end_date, df_results)
+    create_plot(start_date, end_date, df_results, title='Results')

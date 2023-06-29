@@ -129,6 +129,16 @@ if __name__ == '__main__':
         # Read the CSV file into a DataFrame
         df = pd.read_csv(csv_file)
 
+        name = str(csv_file)
+        if '025' in name:
+            df = df / 25
+        elif '050' in name:
+            df = df / 50
+        elif '150' in name:
+            df = df / 150
+        elif '300' in name:
+            df = df / 300
+
         x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
         x_axis_time = x_axis_time[:-1]
 
