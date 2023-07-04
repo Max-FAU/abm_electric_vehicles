@@ -279,7 +279,6 @@ def print_scenario_one_row():
     csv_files = sorted(csv_files)
 
     for i, csv_file in enumerate(csv_files):
-        fig, ax = plt.subplots(nrows=1, ncols=1)
         # Read the CSV file into a DataFrame
         df = pd.read_csv(csv_file)
 
@@ -302,47 +301,43 @@ def print_scenario_one_row():
         # Set the 'timestamp' column as the index
         df.set_index('timestamp', inplace=True)
 
-        # Extract the hour and minute components from the timestamp
-        df['hour'] = df.index.hour
-        df['minute'] = df.index.minute
+        x = df.index
+        y = df['total_recharge_power']
+        y1 = df['total_customer_load']
+        y2 = df['total_load']
+        y3 = df['transformer_capacity']
 
-        # Group the data by hour and quarter hour and calculate the average
-        df_grouped = df.groupby(['hour', 'minute']).mean()
+        plt.plot(x, y, label='total_recharge_power')
+        plt.plot(x, y1, label='total_customer_load')
+        plt.plot(x, y2, label='total_load')
+        plt.plot(x, y3, label='transformer_capacity')
 
-        # Reset the index to turn the grouped columns into regular columns
-        df_grouped.reset_index(inplace=True)
 
-        # Remove the unnecessary columns
-        df_grouped = df_grouped[
-            ['hour', 'minute', 'total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity']]
+        # df.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'], ax=ax)
+        # plt.xticks(x, rotation=90)
 
-        df_grouped.plot(y=['total_recharge_power', 'total_customer_load', 'total_load', 'transformer_capacity'], ax=ax)
-        # df_grouped.plot(y='total_recharge_power', ax=ax)
-        # title = csv_file.parent.name
-        # title = title.replace("model_30_", "").replace("_cars", "").replace("_interaction", "")
+        import matplotlib.dates as mdates
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
+        plt.xticks(rotation=90)
+
         title = "Scenario " + str(i + 1)
-        ax.set_title(title)
-        ax.set_ylabel('Charging Power \n [kW]')
+        plt.title(title)
+        plt.ylabel('Charging Power \n [kW]')
 
-        timestamps = pd.date_range(start='00:00', end='23:45', freq='15T')
-        xtick_labels = [ts.strftime('%H:%M') for ts in timestamps]
-        ax.set_xticks(range(0, len(timestamps), 4))
-        ax.set_xticklabels(xtick_labels[::4], rotation=90)
+        plt.legend(loc='lower center', ncol=2, bbox_to_anchor=(0.5, -0.6), frameon=False)
+        plt.ylim(0, 6)
+        plt.xlim(df.index.min(), df.index.max())
+        # ax.set_xlim(0, 14)
+        plt.xlabel('Day')
 
-        ax.legend(loc='lower center', ncol=2, bbox_to_anchor=(0.5, -0.4), frameon=False)
-        ax.set_ylim(bottom=0, top=4.5)
-        ax.set_xlim(0, 95)
+        # Add a legend
+        # plt.legend()
         plt.tight_layout()
-        fig_name = title + '_average_load_profile'
+        fig_name = title + '_weekly_profile'
         plt.savefig(fig_name, dpi=300)
-    plt.show()
-
-    # Create a single legend below the plot using lines from the last subplot
-    # legend = plt.figlegend(lines_last_subplot, [line.get_label() for line in lines_last_subplot],
-    #                        loc='lower center', ncol=4, bbox_to_anchor=(0.5, 0.02), frameon=False)
-    # legend.get_frame().set_facecolor('white')
-    # plt.subplots_adjust(bottom=0, wspace=1, hspace=0.5)
-
+        plt.show()
 
 
 if __name__ == '__main__':
