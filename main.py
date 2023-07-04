@@ -26,7 +26,7 @@ if __name__ == '__main__':
     num_transformers = args.num_transformers
     num_customers = args.num_customers
 
-    car_charging_algo = True
+    car_charging_algo = False
 
     car_target_soc = 100
 
