@@ -408,7 +408,7 @@ class ElectricVehicle(Agent):
         if old_battery_lvl is None:
             old_battery_lvl = self.battery_capacity
         new_battery_lvl = old_battery_lvl - self.consumption
-        # to not get battery lvl below 0
+        # to not get battery lvl below 0 only needed if there is consumption more than battery capacity
         new_battery_lvl = max(new_battery_lvl, 0)
         self.set_battery_level(new_battery_lvl)
 
@@ -489,6 +489,7 @@ class ElectricVehicle(Agent):
         """ Calculate the capacity that is empty / not charged in a battery. """
         battery_capacity = self.get_battery_capacity()
         battery_level = self.get_battery_level()
+
         return battery_capacity - battery_level
 
     def empty_battery_capacity_soc(self):
@@ -511,35 +512,39 @@ class ElectricVehicle(Agent):
         - empty battery capacity regarding soc
 
         """
-        empty_battery_capacity = self.empty_battery_capacity()   # kwh
-        possible_soc_capacity = self.empty_battery_capacity_soc()    # kwh
+        empty_battery_capacity = self.empty_battery_capacity()   # kw
+        empty_battery_value = aux.convert_kw_kwh(kw=empty_battery_capacity) # kwh
+        possible_soc_capacity = self.empty_battery_capacity_soc()    # kw
+        empty_soc_value = aux.convert_kw_kwh(kw=possible_soc_capacity)  # kwh
 
         # Set correct charging power for the car based on cluster
         charging_power_car = self.get_charging_power_car()
         charging_value_car = aux.convert_kw_kwh(kw=charging_power_car)
-        real_charging_value_car = charging_value_car * charging_efficiency / 100
 
         # Set correct charging power for the station based on cluster
         charging_power_station = self.get_charging_power_station()
         charging_value_station = aux.convert_kw_kwh(kw=charging_power_station)
-        real_charging_value_station = charging_value_station * charging_efficiency / 100
 
-        possible_charging_value = min(empty_battery_capacity,
-                                      possible_soc_capacity,
-                                      real_charging_value_car,
-                                      real_charging_value_station)
+
+        possible_charging_value = min(empty_battery_value,
+                                      empty_soc_value,
+                                      charging_value_car,
+                                      charging_value_station)
+
+        # include efficiency
+        real_charging_value = possible_charging_value * charging_efficiency / 100
 
         debug = False
         if debug:
             print("empty_battery_capacity: {} "
                   "possible_soc_capacity {} "
                   "real_charging_value_car {} "
-                  "real_charging_value_station {} ".format(empty_battery_capacity,
-                                                          possible_soc_capacity,
-                                                          real_charging_value_car,
-                                                          real_charging_value_station))
+                  "real_charging_value_station {} ".format(empty_battery_value,
+                                                          empty_soc_value,
+                                                          charging_value_car,
+                                                          charging_value_station))
 
-        return possible_charging_value
+        return real_charging_value
 
     def get_cluster(self):
         """

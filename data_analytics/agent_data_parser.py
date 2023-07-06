@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 
 path2 = r'C:\Users\Max\PycharmProjects\mesa\results\model_30_025_interaction_false_norm_cars\results_run_1_agent_data.csv'
 path3 = r'C:\Users\Max\PycharmProjects\mesa\results\model_30_300_interaction_false_norm_cars\results_run_1_agent_data.csv'
-path = r'C:\Users\Max\PycharmProjects\mesa\results\model_30_150_interaction_true_off_peak_cars\results_run_1_agent_data.csv'
+path4 = r'C:\Users\Max\PycharmProjects\mesa\results\model_30_150_interaction_true_off_peak_cars\results_run_1_agent_data.csv'
+path = r'C:\Users\Max\PycharmProjects\mesa\results\results_run_0_agent_data.csv'
 df = pd.read_csv(path)
 # reduce the df to car data
 df = df[df['car_data'].apply(lambda x: len(x) > 2)].reset_index(drop=True)
@@ -69,8 +70,8 @@ for id in unique_car_ids:
     #                      (test['consumption'] > 0)]
     # print(filtered_test['timestamp'], filtered_test['soc'], filtered_test['consumption'])
     # df_to_plot = filtered_test[['timestamp', 'soc', 'consumption', 'charging_power_car', 'charging_power_station', 'battery_level', 'recharge_value']]
-    test['battery_level'] = test.apply(lambda row: calc_new_battery_level(row['battery_level'], row['battery_capacity'], row['consumption']), axis=1)
-    test['soc'] = test.apply(lambda row: calc_soc(row['battery_level'], row['battery_capacity']), axis=1)
+    # test['battery_level'] = test.apply(lambda row: calc_new_battery_level(row['battery_level'], row['battery_capacity'], row['consumption']), axis=1)
+    # test['soc'] = test.apply(lambda row: calc_soc(row['battery_level'], row['battery_capacity']), axis=1)
     test = test[['timestamp', 'soc', 'consumption', 'charging_power_car', 'charging_power_station', 'battery_level', 'recharge_value']]
     test.set_index('timestamp', inplace=True)
     test.plot()
