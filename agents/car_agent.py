@@ -408,6 +408,8 @@ class ElectricVehicle(Agent):
         if old_battery_lvl is None:
             old_battery_lvl = self.battery_capacity
         new_battery_lvl = old_battery_lvl - self.consumption
+        # to not get battery lvl below 0
+        new_battery_lvl = max(new_battery_lvl, 0)
         self.set_battery_level(new_battery_lvl)
 
     def set_plug_in_buffer(self, value: bool):
