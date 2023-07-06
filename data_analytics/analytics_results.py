@@ -326,7 +326,7 @@ def print_scenario_one_row():
         plt.title(title)
         plt.ylabel('Charging Power \n [kW]')
 
-        plt.legend(loc='lower center', ncol=2, bbox_to_anchor=(0.5, -0.6), frameon=False)
+        plt.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.3), frameon=False)
         plt.ylim(0, 6)
         plt.xlim(df.index.min(), df.index.max())
         # ax.set_xlim(0, 14)
@@ -336,7 +336,7 @@ def print_scenario_one_row():
         # plt.legend()
         plt.tight_layout()
         fig_name = title + '_weekly_profile'
-        plt.savefig(fig_name, dpi=300)
+        # plt.savefig(fig_name, dpi=300)
         plt.show()
 
 
