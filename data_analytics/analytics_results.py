@@ -277,20 +277,21 @@ def print_scenario_one_row():
     directory = Path(directory_path)
     csv_files = list(directory.glob("**/results_all_runs.csv"))
     csv_files = sorted(csv_files)
+    # csv_file = r'C:\Users\Max\PycharmProjects\mesa\results\results_all_runs.csv'
 
     for i, csv_file in enumerate(csv_files):
         # Read the CSV file into a DataFrame
         df = pd.read_csv(csv_file)
 
         name = str(csv_file)
-        if '025' in name:
-            df = df / 25
-        elif '050' in name:
-            df = df / 50
-        elif '150' in name:
-            df = df / 150
-        elif '300' in name:
-            df = df / 300
+        # if '025' in name:
+        #     df = df / 25
+        # elif '050' in name:
+        #     df = df / 50
+        # elif '150' in name:
+        #     df = df / 150
+        # elif '300' in name:
+        #     df = df / 300
 
         x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
         x_axis_time = x_axis_time[:-1]
@@ -327,7 +328,18 @@ def print_scenario_one_row():
         plt.ylabel('Charging Power \n [kW]')
 
         plt.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.3), frameon=False)
-        plt.ylim(0, 6)
+
+        if '025' in name:
+            plt.ylim(0, 80)
+        elif '050' in name:
+            plt.ylim(0, 140)
+        elif '150' in name:
+            plt.ylim(0, 400)
+        elif '300' in name:
+            plt.ylim(0, 450)
+
+
+        # plt.ylim(0, 6)
         plt.xlim(df.index.min(), df.index.max())
         # ax.set_xlim(0, 14)
         plt.xlabel('Day')
@@ -335,8 +347,8 @@ def print_scenario_one_row():
         # Add a legend
         # plt.legend()
         plt.tight_layout()
-        fig_name = title + '_weekly_profile'
-        # plt.savefig(fig_name, dpi=300)
+        fig_name = title + '_weekly_profile_total'
+        plt.savefig(fig_name, dpi=300)
         plt.show()
 
 

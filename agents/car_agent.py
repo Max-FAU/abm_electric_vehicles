@@ -512,10 +512,11 @@ class ElectricVehicle(Agent):
         - empty battery capacity regarding soc
 
         """
-        empty_battery_capacity = self.empty_battery_capacity()   # kw
-        empty_battery_value = aux.convert_kw_kwh(kw=empty_battery_capacity) # kwh
-        possible_soc_capacity = self.empty_battery_capacity_soc()    # kw
-        empty_soc_value = aux.convert_kw_kwh(kw=possible_soc_capacity)  # kwh
+        # battery capacity is e.g. 50 kwh
+        empty_battery_capacity = self.empty_battery_capacity()   # kwh
+        # empty_battery_value = aux.convert_kw_kwh(kw=empty_battery_capacity) # kwh
+        possible_soc_capacity = self.empty_battery_capacity_soc()    # kwh
+        # empty_soc_value = aux.convert_kw_kwh(kw=possible_soc_capacity)  # kwh
 
         # Set correct charging power for the car based on cluster
         charging_power_car = self.get_charging_power_car()
@@ -525,9 +526,8 @@ class ElectricVehicle(Agent):
         charging_power_station = self.get_charging_power_station()
         charging_value_station = aux.convert_kw_kwh(kw=charging_power_station)
 
-
-        possible_charging_value = min(empty_battery_value,
-                                      empty_soc_value,
+        possible_charging_value = min(empty_battery_capacity,
+                                      possible_soc_capacity,
                                       charging_value_car,
                                       charging_value_station)
 
@@ -539,10 +539,10 @@ class ElectricVehicle(Agent):
             print("empty_battery_capacity: {} "
                   "possible_soc_capacity {} "
                   "real_charging_value_car {} "
-                  "real_charging_value_station {} ".format(empty_battery_value,
-                                                          empty_soc_value,
-                                                          charging_value_car,
-                                                          charging_value_station))
+                  "real_charging_value_station {} ".format(empty_battery_capacity,
+                                                           possible_soc_capacity,
+                                                           charging_value_car,
+                                                           charging_value_station))
 
         return real_charging_value
 
@@ -559,7 +559,7 @@ class ElectricVehicle(Agent):
         """Can only charge at home or work."""
         cluster = self.get_cluster()
         ac_charging_capacity = self.get_charging_power_ac()
-        dc_charging_capacity = self.get_charging_power_dc()
+        # dc_charging_capacity = self.get_charging_power_dc()
 
         # Both are set to ac charging because we consider work has also ac chargers
         if cluster == 1:  # home
@@ -568,6 +568,7 @@ class ElectricVehicle(Agent):
             self.charging_power_car = ac_charging_capacity
         else:
             # Change this, if car should charge everywhere e.g. public charging
+            # This could also be dc charging
             self.charging_power_car = 0
 
     def get_charging_power_car(self):
