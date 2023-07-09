@@ -19,6 +19,7 @@ class ChargingModel(Model):
                  num_customers: int,
                  start_date: str,
                  end_date: str,
+                 car_charging_eff: int,
                  car_target_soc: int,
                  car_charging_algo: bool,
                  seed_value: int):
@@ -41,6 +42,7 @@ class ChargingModel(Model):
         self.list_models = self.generate_cars_according_to_dist()
         self.num_transformers = num_transformers
         self.num_customers = num_customers
+        self.car_charging_eff = car_charging_eff
         self.car_target_soc = car_target_soc
         self.car_charging_algo = car_charging_algo
 
@@ -106,6 +108,7 @@ class ChargingModel(Model):
                                       car_model=car_model,
                                       start_date=self.start_date,
                                       end_date=self.end_date,
+                                      charging_eff=self.car_charging_eff,
                                       target_soc=self.car_target_soc,
                                       charging_algo=self.car_charging_algo,
                                       seed_value=self.seed_value)
@@ -131,6 +134,7 @@ class ChargingModel(Model):
                                              car_model=car_model,
                                              start_date=self.start_date,
                                              end_date=self.end_date,
+                                             charging_eff=self.car_charging_eff,
                                              target_soc=self.car_target_soc,
                                              charging_algo=self.car_charging_algo,
                                              seed_value=self.seed_value)

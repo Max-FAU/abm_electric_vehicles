@@ -6,7 +6,7 @@ import seaborn as sns
 
 directory_path = r'C:\Users\Max\PycharmProjects\mesa\results'
 directory = Path(directory_path)
-csv_files = list(directory.glob("model_30_025_interaction_*_off*/*_1_agent_data.csv"))
+csv_files = list(directory.glob("model_30_025_interaction_false_off*/*_1_agent_data.csv"))
 csv_files = sorted(csv_files)
 # csv_file = r'C:\Users\Max\PycharmProjects\mesa\results\results_all_runs.csv'
 
@@ -18,7 +18,7 @@ for i, csv_file in enumerate(csv_files):
     # path3 = r'C:\Users\Max\PycharmProjects\mesa\results\model_30_300_interaction_false_norm_cars\results_run_1_agent_data.csv'
     # path4 = r'C:\Users\Max\PycharmProjects\mesa\results\model_30_150_interaction_true_off_peak_cars\results_run_1_agent_data.csv'
     # path = r'C:\Users\Max\PycharmProjects\mesa\results\results_run_0_agent_data.csv'
-    df = pd.read_csv(csv_file)
+    df = pd.read_csv(r'C:\Users\Max\PycharmProjects\mesa\results\results_run_1_agent_data.csv')
     # reduce the df to car data
     df = df[df['car_data'].apply(lambda x: len(x) > 2)].reset_index(drop=True)
     df = df.drop(['customer_data'], axis=1)

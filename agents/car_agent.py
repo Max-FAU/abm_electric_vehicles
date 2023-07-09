@@ -24,6 +24,7 @@ class ElectricVehicle(Agent):
                  car_model,
                  start_date: str,
                  end_date: str,
+                 charging_eff: int,
                  target_soc: int,
                  charging_algo: bool,
                  seed_value: int):
@@ -37,6 +38,7 @@ class ElectricVehicle(Agent):
         self.car_model = car_model
         self.start_date = pd.to_datetime(start_date)
         self.end_date = pd.to_datetime(end_date)
+        self.charging_eff = charging_eff
         self.target_soc = target_soc
         self.charging_algo = charging_algo
         self.seed_value = seed_value
@@ -269,6 +271,10 @@ class ElectricVehicle(Agent):
         # Load correct mobility file
         file_path = aux.create_file_path(car_id, test=False)
         self.mobility_data = self.load_mobility_data(file_path)
+
+        self.mobility_data['AT_CHARGER'] = self.mobility_data.apply(lambda row: 1 if ((row['CLUSTER'] in [1, 2])
+                                                                      and (row['ID_PANELSESSION'] == 0)) else 0, axis=1)
+
         print("Adding mobility profile of car {} to agent {} ...".format(self.car_id, self.unique_id))
         # self.mobility_data.to_csv("mobility_test_data.csv")
         # self.mobility_data = self.load_mobility_data('mobility_test_data.csv')
@@ -282,20 +288,49 @@ class ElectricVehicle(Agent):
         leaving a charger and reaching a new charger (Cluster 1 or 2).
         No public chargers considered here.
         """
-        id_panel = self.get_panel_session()
-        mobility_data = self.get_mobility_data()
-        cluster = self.get_cluster()
-        # cluster indicates if the car is at home, work or somewhere else
-        # panel session if the car is driving, ignition, or turning engine off
-        # cluster 1 = home, cluster 2 = work
-        if cluster == 1 and id_panel == 0 or cluster == 2 and id_panel == 0:
-            # We are interested in the consumption the next trip has
-            # A new possibility to charge always occurs when the car is not driving and when the car is at home or work
-            next_block = (mobility_data['CLUSTER'].ne(1) & mobility_data['CLUSTER'].ne(2) & mobility_data['ID_PANELSESSION'].ne(0)).idxmax()
-            next_trip_consumption = mobility_data.loc[next_block:, 'ECONSUMPTIONKWH'].sum()
-            self.consumption_to_next_charge = next_trip_consumption
-        else:
-            self.consumption_to_next_charge = 0
+        data = self.get_mobility_data()
+        data = data.copy()
+        # Create groups
+        group_label = (data['AT_CHARGER'] != data['AT_CHARGER'].shift(1)).cumsum()
+        data['GROUP'] = group_label
+        data['GROUP_SHIFTED'] = group_label - 1
+        # calculate the sums of the group labels
+        group_sums = data.groupby(group_label)['ECONSUMPTIONKWH'].transform('sum')
+        # assign them to a column
+        data['TRIP_CONSUMPTION'] = group_sums
+        # map the group sums to the previous group and fill nan with 0
+        mapping = dict(zip(data['GROUP_SHIFTED'], data['TRIP_CONSUMPTION']))
+        data['NEXT_TRIP_CONSUMPTION'] = data['GROUP'].map(mapping).fillna(0)
+
+        self.consumption_to_next_charge = data.loc[self.timestamp, 'NEXT_TRIP_CONSUMPTION']
+
+    # def set_consumption_to_next_charge(self):
+    #     """
+    #     Next trip is not defined by trip number instead it is defined by
+    #     leaving a charger and reaching a new charger (Cluster 1 or 2).
+    #     No public chargers considered here.
+    #     """
+    #     id_panel = self.get_panel_session()
+    #     mobility_data = self.get_mobility_data()
+    #
+    #     cluster = self.get_cluster()
+    #     # cluster indicates if the car is at home, work or somewhere else
+    #     # panel session if the car is driving, ignition, or turning engine off
+    #     # cluster 1 = home, cluster 2 = work
+    #     if (cluster == 1 and id_panel == 0) or (cluster == 2 and id_panel == 0):
+    #         # We are interested in the consumption the next trip has
+    #         # A new possibility to charge always occurs when the car is not driving and when the car is at home or work
+    #         next_block = (mobility_data['CLUSTER'].ne(1)
+    #                       & mobility_data['CLUSTER'].ne(2)
+    #                       & mobility_data['ID_PANELSESSION'].ne(0)).idxmax()
+    #         print(next_block)
+    #         next_trip_consumption = mobility_data.loc[next_block:, 'ECONSUMPTIONKWH'].sum()
+    #         # print(next_trip_consumption)
+    #         self.consumption_to_next_charge = next_trip_consumption
+    #     else:
+    #         self.consumption_to_next_charge = 0
+    #     print(self.consumption_to_next_charge)
+    #     breakpoint()
 
     def get_consumption_to_next_charge(self):
         return self.consumption_to_next_charge
@@ -501,7 +536,10 @@ class ElectricVehicle(Agent):
         possible_charging_value = max(0, battery_capacity * potential_soc / 100)
         return possible_charging_value
 
-    def calc_charging_value(self, charging_efficiency=90):
+    def get_charging_efficiency(self):
+        return self.charging_eff
+
+    def calc_charging_value(self):
         """
         Function to calculate the real charging value.
 
@@ -512,27 +550,29 @@ class ElectricVehicle(Agent):
         - empty battery capacity regarding soc
 
         """
+        efficiency = self.get_charging_efficiency()
+
         # battery capacity is e.g. 50 kwh
         empty_battery_capacity = self.empty_battery_capacity()   # kwh
-        # empty_battery_value = aux.convert_kw_kwh(kw=empty_battery_capacity) # kwh
+        # calculated in kwh
         possible_soc_capacity = self.empty_battery_capacity_soc()    # kwh
-        # empty_soc_value = aux.convert_kw_kwh(kw=possible_soc_capacity)  # kwh
 
         # Set correct charging power for the car based on cluster
         charging_power_car = self.get_charging_power_car()
         charging_value_car = aux.convert_kw_kwh(kw=charging_power_car)
+        # less kwh is reaching the car
+        real_charging_value_car = charging_value_car * efficiency / 100
 
         # Set correct charging power for the station based on cluster
         charging_power_station = self.get_charging_power_station()
         charging_value_station = aux.convert_kw_kwh(kw=charging_power_station)
+        # less kwh is reaching the car
+        real_charging_value_station = charging_value_station * efficiency / 100
 
-        possible_charging_value = min(empty_battery_capacity,
-                                      possible_soc_capacity,
-                                      charging_value_car,
-                                      charging_value_station)
-
-        # include efficiency
-        real_charging_value = possible_charging_value * charging_efficiency / 100
+        charging_value = min(empty_battery_capacity,
+                             possible_soc_capacity,
+                             real_charging_value_car,
+                             real_charging_value_station)
 
         debug = False
         if debug:
@@ -544,7 +584,7 @@ class ElectricVehicle(Agent):
                                                            charging_value_car,
                                                            charging_value_station))
 
-        return real_charging_value
+        return charging_value
 
     def get_cluster(self):
         """
@@ -556,7 +596,11 @@ class ElectricVehicle(Agent):
         return self.cluster
 
     def set_charging_power_car(self):
-        """Can only charge at home or work."""
+        """
+        Can only charge at home or work.
+        To set charging to public, replace > else charging_power_car = 0
+        with the value the car should be able to charge when stopping at public location.
+        """
         cluster = self.get_cluster()
         ac_charging_capacity = self.get_charging_power_ac()
         # dc_charging_capacity = self.get_charging_power_dc()
@@ -622,7 +666,8 @@ class ElectricVehicle(Agent):
         battery_capacity = self.get_battery_capacity()
         # Calculate the consumption next trip related to the battery capacity
         # Next trip needs a large amount of battery capacity then prioritize charging
-        relative_need = consumption_next_trip_range_anx / battery_capacity
+
+        relative_need = consumption_next_trip_range_anx / battery_capacity * 100
 
         if relative_need <= 20:
             prio_next_trip = 1
@@ -643,9 +688,11 @@ class ElectricVehicle(Agent):
 
         debug = False
         if debug:
-            print('soc {}, prio_soc {},'
+            print('timestamp {},'
+                  'soc {}, prio_soc {},'
                   'next_trip {}, prio_next_trip {}, '
-                  'charging_duration {}, prio_time {}'.format(self.soc,
+                  'charging_duration {}, prio_time {}'.format(self.timestamp,
+                                                              self.soc,
                                                               prio_soc,
                                                               relative_need,
                                                               prio_next_trip,
