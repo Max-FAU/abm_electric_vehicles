@@ -1,48 +1,37 @@
-import mesa
-from mesa import Model
-from mesa.time import RandomActivation
 import pandas as pd
-import datetime
 
-# Define the start and end dates for the one-week period
-start_date = '2023-06-29'
-end_date = '2023-07-06'
+df_1 = pd.DataFrame(
+    {
+        "A": [1, 1, 1],
+        "B": [2, 2, 2]
+    }
+)
 
-start_off_peak = pd.to_datetime('22:00:00')
-end_off_peak = pd.to_datetime('06:00:00')
-saturday_off_peak = pd.to_datetime('13:00:00')
+df_2 = pd.DataFrame(
+    {
+        "C": [3, 3, 3],
+        "D": [4, 4, 4]
+    }
+)
 
-# Generate the timestamps
-timestamps = pd.date_range(start=start_date, end=end_date, freq='15T')
-timestamps = timestamps[:-1]
-start = start_off_peak.hour
-end = end_off_peak.hour
-saturday_start = saturday_off_peak.hour
+df_list = [df_1, df_2]
 
-results_df = pd.DataFrame(columns=['Timestamp', 'DayType', 'OffPeak'])
+df_list_df = pd.concat(df_list, axis=1)
 
-# Print the timestamps
-for timestamp in timestamps:
-    row = {}
+df_list_df['total'] = df_list_df.sum(axis=1)
+df_list_df['total_2'] = df_list_df['total'] / 2
 
-    if timestamp.weekday() == 5:
-        row['DayType'] = 'Saturday'
+import matplotlib.pyplot as plt
 
-        if timestamp.hour >= saturday_start or timestamp.hour < end:
-            row['OffPeak'] = True
-        else:
-            row['OffPeak'] = False
-    elif timestamp.weekday() == 6:
-        row['DayType'] = 'Sunday'
-        row['OffPeak'] = True
-    else:
-        row['DayType'] = 'Normal Day'
-        if timestamp.hour >= start or timestamp.hour < end:
-            row['OffPeak'] = True
-        else:
-            row['OffPeak'] = False
+plt.scatter([1] * len(df_list_df['total']), df_list_df['total'], color='blue')
+plt.scatter([2] * len(df_list_df['total']), df_list_df['total'], color='blue')
 
-    row['Timestamp'] = timestamp
-    results_df = results_df.append(row, ignore_index=True)
+custom_xticks_positions = [0, 1, 2, 3, 4, 5]
+custom_xticklabels = ['', '25 EVs', '50 EVs', '150 EVs', '300 EVs', '']
+plt.title('Peak Load Charging: Different Fleet Sizes')
+plt.ylabel('Peak Load per EV\n[kW]')
+plt.xlabel('Fleet Size')
 
-results_df.to_csv('offpeak.csv')
+plt.xticks(custom_xticks_positions, custom_xticklabels, rotation=90)
+plt.tight_layout()
+plt.show()

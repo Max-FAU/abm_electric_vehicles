@@ -11,13 +11,14 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
     end_date = '2008-07-27'
+    # end_date = '2008-07-14'
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
-    parser.add_argument('--model_runs', type=int, default=2, help='Number of model runs')
-    parser.add_argument('--num_cars_normal', type=int, default=2, help='Number of normal cars')
+    parser.add_argument('--model_runs', type=int, default=1, help='Number of model runs')
+    parser.add_argument('--num_cars_normal', type=int, default=1, help='Number of normal cars')
     parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
-    parser.add_argument('--num_customers', type=int, default=2, help='Number of customers')
+    parser.add_argument('--num_customers', type=int, default=1, help='Number of customers')
     args = parser.parse_args()
 
     model_runs = args.model_runs
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     num_transformers = args.num_transformers
     num_customers = args.num_customers
 
-    car_charging_algo = True
+    car_charging_algo = False
 
     car_charging_eff = 90
     car_target_soc = 100
@@ -56,18 +57,18 @@ if __name__ == '__main__':
 
         model_data = model.datacollector.get_model_vars_dataframe()
         model_data["total_load"] = model_data["total_recharge_power"] + model_data["total_customer_load"]
-        model_data.to_csv(RESULT_PATH / "results_run_{}_model_data.csv".format(i), index=False)
+        # model_data.to_csv(RESULT_PATH / "results_run_{}_model_data.csv".format(i), index=False)
         model_results.append(model_data)
 
         agent_data = model.datacollector.get_agent_vars_dataframe()
-        agent_data.to_csv(RESULT_PATH / "results_run_{}_agent_data.csv".format(i), index=False)
+        # agent_data.to_csv(RESULT_PATH / "results_run_{}_agent_data.csv".format(i), index=False)
 
-        with open(RESULT_PATH / "seed_run_{}.txt".format(i), "w") as file:
-            file.write(str(seed_value))
+        # with open(RESULT_PATH / "seed_run_{}.txt".format(i), "w") as file:
+        #     file.write(str(seed_value))
 
     df_concat = pd.concat(model_results)
     df_results = df_concat.groupby(df_concat.index).mean()
-    df_results.to_csv(RESULT_PATH / "results_all_runs.csv", index=False)
+    # df_results.to_csv(RESULT_PATH / "results_all_runs.csv", index=False)
 
     end = timeit.default_timer()
     run_time = end - start

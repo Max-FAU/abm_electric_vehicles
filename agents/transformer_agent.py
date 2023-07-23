@@ -25,7 +25,7 @@ class Transformer(Agent):
         self.f_safety = f_safety
         self.power_factor = power_factor
 
-        self._timestamp = None
+        # self._timestamp = None
 
         self.total_peak_load = None
         self.p_over = None

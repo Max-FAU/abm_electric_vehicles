@@ -47,7 +47,7 @@ class ElectricVehicle(Agent):
         self.car_values = dict()
         self.battery_capacity = None
         self.car_size = None
-        self.number_of_car_model = None
+        # self.number_of_car_model = None
         self.charging_power_ac = None
         self.charging_power_dc = None
         self.complete_initialization()
@@ -78,7 +78,7 @@ class ElectricVehicle(Agent):
         self.charging_power_car = None
         self.charging_power_station = None
         self.charging_value = None
-        self.grid_load = None
+        # self.grid_load = None
 
         # self.charger_to_charger_trips = self.set_charger_to_charger_trips()
         self.consumption_to_next_charge = None
@@ -273,7 +273,7 @@ class ElectricVehicle(Agent):
         self.mobility_data = self.load_mobility_data(file_path)
 
         self.mobility_data['AT_CHARGER'] = self.mobility_data.apply(lambda row: 1 if ((row['CLUSTER'] in [1, 2])
-                                                                      and (row['ID_PANELSESSION'] == 0)) else 0, axis=1)
+                                                                    and (row['ID_PANELSESSION'] == 0)) else 0, axis=1)
 
         print("Adding mobility profile of car {} to agent {} ...".format(self.car_id, self.unique_id))
         # self.mobility_data.to_csv("mobility_test_data.csv")
