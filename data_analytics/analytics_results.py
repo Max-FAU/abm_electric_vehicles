@@ -712,6 +712,154 @@ def combination_of_average_load_profiles():
     plt.show()
 
 
+def data_export_for_correlation():
+    start_date = '2008-07-13'
+    end_date = '2008-07-27'
+
+    scenarios = [
+        "*_025_interaction_false_norm*/results_run_*_model*.csv",
+        "*_025_interaction_true_norm*/results_run_*_model*.csv",
+        "*_025_interaction_false_off*/results_run_*_model*.csv",
+        "*_025_interaction_true_off*/results_run_*_model*.csv",
+
+        "*_050_interaction_false_norm*/results_run_*_model*.csv",
+        "*_050_interaction_true_norm*/results_run_*_model*.csv",
+        "*_050_interaction_false_off*/results_run_*_model*.csv",
+        "*_050_interaction_true_off*/results_run_*_model*.csv",
+
+        "*_150_interaction_false_norm*/results_run_*_model*.csv",
+        "*_150_interaction_true_norm*/results_run_*_model*.csv",
+        "*_150_interaction_false_off*/results_run_*_model*.csv",
+        "*_150_interaction_true_off*/results_run_*_model*.csv",
+
+        "*_300_interaction_false_norm*/results_run_*_model*.csv",
+        "*_300_interaction_true_norm*/results_run_*_model*.csv",
+        "*_300_interaction_false_off*/results_run_*_model*.csv",
+        "*_300_interaction_true_off*/results_run_*_model*.csv"
+    ]
+
+    directory_path = r'C:\Users\Max\PycharmProjects\mesa\results'
+    directory = Path(directory_path)
+
+    for j, scenario in enumerate(scenarios):
+        csv_files = list(directory.glob(scenario))
+        csv_files = sorted(csv_files)
+
+        list_of_df_recharge_power = []
+        list_of_df_customer_load = []
+        list_of_df_transformer_capacity = []
+        list_of_df_load = []
+
+        for i, csv_file in enumerate(csv_files):
+            df = pd.read_csv(csv_file)
+            x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
+            x_axis_time = x_axis_time[:-1]
+
+            df['timestamp'] = x_axis_time
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+            # Set the 'timestamp' column as the index
+            df.set_index('timestamp', inplace=True)
+
+            list_of_df_recharge_power.append(df['total_recharge_power'])
+            list_of_df_customer_load.append(df['total_customer_load'])
+            list_of_df_transformer_capacity.append(df['transformer_capacity'])
+            list_of_df_load.append(df['total_load'])
+
+        result_df_recharge_power = pd.concat(list_of_df_recharge_power, axis=1)
+        result_df_recharge_power['average'] = result_df_recharge_power['total_recharge_power'].mean(axis=1)
+        result_df_recharge_power['percentile_5'] = result_df_recharge_power['total_recharge_power'].quantile(0.05,
+                                                                                                             axis=1)
+        result_df_recharge_power['percentile_95'] = result_df_recharge_power['total_recharge_power'].quantile(0.95, axis=1)
+        result_df_recharge_power = result_df_recharge_power[['average', 'percentile_5', 'percentile_95']]
+        string = str(j) + 'recharge_power.csv'
+        result_df_recharge_power.to_csv(string)
+
+        result_df_total_load = pd.concat(list_of_df_load, axis=1)
+        result_df_total_load['average'] = result_df_total_load.mean(axis=1)
+        result_df_total_load['percentile_5'] = result_df_total_load.quantile(0.05, axis=1)
+        result_df_total_load['percentile_95'] = result_df_total_load.quantile(0.95, axis=1)
+        result_df_total_load = result_df_total_load[['average', 'percentile_5', 'percentile_95']]
+        string2 = str(j) + 'total_load.csv'
+        result_df_total_load.to_csv(string2)
+
+
+def calc_correlation_between_average_load_profiles():
+    # rename manually with leading 0
+    import glob
+    average_columns = []
+    names = []
+    csv_files = glob.glob(r"C:\Users\Max\PycharmProjects\mesa\data_analytics\*recharge_power.csv")
+
+    for i, file in enumerate(csv_files):
+        df = pd.read_csv(file)
+        print(df.columns)
+        if 'average' in df.columns:
+            average_columns.append(df['average'])
+            name = 'Scenario {} average'.format(i + 1)
+            names.append(name)
+
+    new_dataframe = pd.concat(average_columns, axis=1, keys=names)
+    correlation_matrix = new_dataframe.corr()
+    plt.figure(figsize=(10, 8))
+    import seaborn as sns
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+    plt.title("Correlation Matrix Average Load Profiles")
+    plt.tight_layout()
+    plt.savefig('Correlation Matrix Average Load Profiles.png', dpi=300)
+    plt.show()
+
+def calc_correlation_between_95_percentile_load_profiles():
+    # rename manually with leading 0
+    import glob
+    average_columns = []
+    names = []
+    csv_files = glob.glob(r"C:\Users\Max\PycharmProjects\mesa\data_analytics\*recharge_power.csv")
+    print(csv_files)
+    for i, file in enumerate(csv_files):
+        df = pd.read_csv(file)
+        # print(df)
+        if 'percentile_95' in df.columns:
+            average_columns.append(df['percentile_95'])
+            name = 'Scenario {} 95_percentile'.format(i + 1)
+            names.append(name)
+
+    new_dataframe = pd.concat(average_columns, axis=1, keys=names)
+    correlation_matrix = new_dataframe.corr()
+    plt.figure(figsize=(10, 8))
+    import seaborn as sns
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+    plt.title("Correlation Matrix 95 % Percentile Load Profiles")
+    plt.tight_layout()
+    plt.savefig('Correlation Matrix 95 % Percentile Load Profiles.png', dpi=300)
+    plt.show()
+
+def calc_correlation_between_5_percentile_load_profiles():
+    # rename manually with leading 0
+    import glob
+    average_columns = []
+    names = []
+    csv_files = glob.glob(r"C:\Users\Max\PycharmProjects\mesa\data_analytics\*recharge_power.csv")
+    print(csv_files)
+    for i, file in enumerate(csv_files):
+        df = pd.read_csv(file)
+        # print(df)
+        if 'percentile_5' in df.columns:
+            average_columns.append(df['percentile_5'])
+            name = 'Scenario {} 5_percentile'.format(i + 1)
+            names.append(name)
+
+    new_dataframe = pd.concat(average_columns, axis=1, keys=names)
+    correlation_matrix = new_dataframe.corr()
+    plt.figure(figsize=(10, 8))
+    import seaborn as sns
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+    plt.title("Correlation Matrix 5 % Percentile Load Profiles")
+    plt.tight_layout()
+    plt.savefig('Correlation Matrix 5 % Percentile Load Profiles.png', dpi=300)
+    plt.show()
+
+
 def all_model_results_and_average():
     start_date = '2008-07-13'
     end_date = '2008-07-27'
@@ -1159,7 +1307,6 @@ def prozentuale_ueberlastung(split=False):
         try:
             concatenated_df = pd.concat(df_results_total, ignore_index=False)
             concatenated_df['utilization'] = round(concatenated_df['total_load'], 2) / concatenated_df['transformer_capacity']
-            print(concatenated_df['utilization'])
             # Define the bins
             bins = [0.0, 1.0, 1.25, 1.5, 2.0, float('inf')]
             labels = ['x <= 100%', '100% < x <= 125%', '125% < x <= 150%', '150% < x <= 200%', 'x > 200%']
@@ -1190,7 +1337,10 @@ def prozentuale_ueberlastung(split=False):
     plt.xticks(rotation=90, ha='center')
     plt.legend(title="Transformer Utilization", bbox_to_anchor=(1.02, 1), loc='upper left', frameon=False)
     plt.tight_layout()
-    plt.savefig("Transformer Utilization All Scenarios.png", dpi=300)
+    if split:
+        plt.savefig("Transformer Utilization All Scenarios No Interaction.png", dpi=300)
+    else:
+        plt.savefig("Transformer Utilization All Scenarios.png", dpi=300)
     plt.show()
 
 
@@ -1312,7 +1462,10 @@ def transformer_ueberlastung(split=False):
     plt.xticks(rotation=90, ha='center')
     plt.legend(title="Transformer Overloading", bbox_to_anchor=(1.02, 1), loc='upper left', frameon=False)
     plt.tight_layout()
-    plt.savefig('Transformer Absolute Overloading All Scenarios.png', dpi=300)
+    if split:
+        plt.savefig('Transformer Absolute Overloading All Scenarios No Interaction.png', dpi=300)
+    else:
+        plt.savefig('Transformer Absolute Overloading All Scenarios.png', dpi=300)
     plt.show()
 
 
@@ -1432,7 +1585,10 @@ def transformer_ueberlastung_prozent(split=False):
     plt.xticks(rotation=90, ha='center')
     plt.legend(title="Transformer Overloading", bbox_to_anchor=(1.02, 1), loc='upper left', frameon=False)
     plt.tight_layout()
-    plt.savefig('Transformer Overloading all Scenarios.png', dpi=300)
+    if split:
+        plt.savefig('Transformer Overloading all Scenarios No Interaction.png', dpi=300)
+    else:
+        plt.savefig('Transformer Overloading all Scenarios.png', dpi=300)
     plt.show()
 
 def box_plot_transformatorauslastung():
@@ -1618,16 +1774,20 @@ def spitzenlast_pro_auto():
     plt.show()
 
 if __name__ == '__main__':
-    # create_diff_plots_all_runs_no_interaction()    # TODO
-    # create_diff_plots_all_runs_interaction()       # TODO
-    # average_load_profiles_models_one_agent()     # TODO Run this to create one plot with average load profiles for one agent
+    # create_diff_plots_all_runs_no_interaction()    # TODO  viele kleine plots in einem bild
+    # create_diff_plots_all_runs_interaction()       # TODO  viele kleine plots in einem bild
+    # average_load_profiles_models_one_agent()     # TODO ein plot mit average load profiles for one agent
     # combination_of_average_load_profiles()
     # print_model_run_one_plot()   # TODO Run this to create average plot for each scenario // WRONG COLORS
     # create_heat_map()  # TODO Create Heatmap
     # spitzenlast_pro_auto()
     # plot_all()      # Run this to have comparison for different scenarios one fleet size
-    prozentuale_ueberlastung(split=True)   # TODO CREATE PLOT
-    transformer_ueberlastung(split=True)   # TODO CREATE PLOT
-    transformer_ueberlastung_prozent(split=True)  # TODO CREATE PLOT
+    # prozentuale_ueberlastung(split=True)   # TODO CREATE PLOT
+    # transformer_ueberlastung(split=True)   # TODO CREATE PLOT
+    # transformer_ueberlastung_prozent(split=True)  # TODO CREATE PLOT
     # box_plot_transformatorauslastung()  # TODO Create Boxplot and copy table
-    # all_model_results_and_average()    # TODO run this to create average results for missing scenario
+    # all_model_results_and_average()    # TODO run this to create average results
+    # data_export_for_correlation()
+    calc_correlation_between_average_load_profiles()
+    calc_correlation_between_5_percentile_load_profiles()
+    calc_correlation_between_95_percentile_load_profiles()

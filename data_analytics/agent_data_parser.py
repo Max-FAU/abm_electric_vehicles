@@ -398,13 +398,15 @@ def plot_one_agent_charging_load():
 
 
 def calculate_agent_statistics():
-    j = 13  # TODO replace this
+    j = 15  # TODO replace this
     num_cars_list = [300]   # TODO Only for 300 run [25, 50, 150]
-    car_types_list = ['normal', 'offpeak']
-    interaction_list = [True, False]
+    # car_types_list = ['normal', 'offpeak']
+    car_types_list = ['offpeak']
+    # interaction_list = [True, False]
+    interaction_list = [False]
     # 25, 50, 150, 300
     capacity = [33.75, 67.5, 225.0, 299.7]
-    capacity = capacity[1]
+    capacity = capacity[3]
 
     for num_cars in num_cars_list:
         for car_type in car_types_list:
@@ -506,12 +508,13 @@ def read_agent_statistics_results():
         df = pd.read_csv(csv_file)
         # df = df.sort_values(by='percentage', ascending=False)
         # df.reset_index(inplace=True)
+        print(csv_file)
         print(df.columns)
-        try:
-            color = df['color'].iloc[1]
-            ax.plot(df['driving'], color=color)
-        except:
-            continue
+        print(df['color'])
+        color = df['color'].iloc[1]
+        # x_positions = range(len(df))
+        ax.plot(df['driving'], color=color)
+
     plt.show()
 
 
@@ -572,8 +575,8 @@ def charging_priority_one_agent_example():
 
 if __name__ == '__main__':
     # plot_agent_min_mean_max_recharge_power()
-    # calculate_agent_statistics()  # TODO run for 300
-    # read_agent_statistics_results()  # TODO implement good statistics to show that car has enough time to charge
+    # calculate_agent_statistics()
+    read_agent_statistics_results()  # TODO implement good statistics to show that car has enough time to charge
     # charging_priority_one_agent_example()   # create one example plot for charging priority
     # plot_one_agent_charging_load()
-    spitzenlast_pro_auto()
+    # spitzenlast_pro_auto()
