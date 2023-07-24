@@ -87,10 +87,20 @@ Note you have following args to pass:<br>
 
 
 ## Contribution
+This was part of the master thesis written @ Bits 2 Energy Lab University of Erlangen Nuremberg.
 
 ## Credits
 
 ## License
+Free to use!
+
+## Known Issues
+- The charging efficiency is currently not implemented correctly
+- Calculating the charging time at the end of simulation does not update correctly
+- Peak load for transformer sizing should be set to yearly maximum peak load
 
 ## Contact
 maximilian.brueggemann@fau.de
+
+## Results
+![Alt text](./data_analytics/Scenario%201_weekly_profile_total.png?raw=true "Generated Weekly Load Profile")
