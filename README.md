@@ -103,4 +103,4 @@ Free to use!
 maximilian.brueggemann@fau.de
 
 ## Results
-![Alt text](abm_electric_vehicles/data_analytics/Scenario 1_weekly_profile_total.png?raw=true "Generated Weekly Load Profile")
+![Alt text](./data_analytics/Scenario 1_weekly_profile_total.png?raw=true "Generated Weekly Load Profile")
