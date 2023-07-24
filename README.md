@@ -87,10 +87,12 @@ Note you have following args to pass:<br>
 
 
 ## Contribution
+This was part of the master thesis written @ Bits 2 Energy Lab University of Erlangen Nuremberg.
 
 ## Credits
 
 ## License
+Free to use!
 
 ## Known Issues
 - The charging efficiency is currently not implemented correctly
@@ -99,3 +101,6 @@ Note you have following args to pass:<br>
 
 ## Contact
 maximilian.brueggemann@fau.de
+
+## Results
+![Alt text](data_analytics/Scenario 5_weekly_profile_total.png?raw=true "Generated Weekly Load Profile")
