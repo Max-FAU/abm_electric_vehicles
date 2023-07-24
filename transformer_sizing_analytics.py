@@ -17,7 +17,7 @@ peak_load = transformer_sizing.get_peak_load_kw()
 
 sizing = {}
 list = [25, 50, 150, 300]
-list = [x for x in range(401)]
+# list = [x for x in range(401)]
 
 for i in list:
     transformer = Transformer(unique_id=1,

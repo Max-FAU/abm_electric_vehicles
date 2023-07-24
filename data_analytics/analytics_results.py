@@ -65,7 +65,6 @@ def plot_all():
     lines = []  # Store lines for creating a common legend
 
     for i, csv_file in enumerate(csv_files):
-        # Read the CSV file into a DataFrame
         df = pd.read_csv(csv_file)
 
         x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
@@ -459,27 +458,27 @@ def create_diff_plots_all_runs_no_interaction():
 def average_load_profiles_models_one_agent():
     start_date = '2008-07-13'
     end_date = '2008-07-27'
-    title = 'Average Charging Profile\nScenario 4, 8, 12, 16'
+    title = 'Average Charging Profile\nScenario 15'
     scenarios = [
-        # "*_025_interaction_false_norm*/results_run_*_model*.csv",
-        # "*_025_interaction_true_norm*/results_run_*_model*.csv",
-        # "*_025_interaction_false_off*/results_run_*_model*.csv",
-        "*_025_interaction_true_off*/results_run_*_model*.csv",
+        # "*_025_interaction_false_norm*/results_run_*_model*.csv",     # 1
+        # "*_025_interaction_true_norm*/results_run_*_model*.csv",      # 2
+        # "*_025_interaction_false_off*/results_run_*_model*.csv",      # 3
+        # "*_025_interaction_true_off*/results_run_*_model*.csv",      # 4
 
-        # "*_050_interaction_false_norm*/results_run_*_model*.csv",
-        # "*_050_interaction_true_norm*/results_run_*_model*.csv",
-        # "*_050_interaction_false_off*/results_run_*_model*.csv",
-        "*_050_interaction_true_off*/results_run_*_model*.csv",
+        # "*_050_interaction_false_norm*/results_run_*_model*.csv",      # 5
+        # "*_050_interaction_true_norm*/results_run_*_model*.csv",      # 6
+        # "*_050_interaction_false_off*/results_run_*_model*.csv",      # 7
+        # "*_050_interaction_true_off*/results_run_*_model*.csv",      # 8
 
-        # "*_150_interaction_false_norm*/results_run_*_model*.csv",
-        # "*_150_interaction_true_norm*/results_run_*_model*.csv",
-        # "*_150_interaction_false_off*/results_run_*_model*.csv",
-        "*_150_interaction_true_off*/results_run_*_model*.csv",
+        # "*_150_interaction_false_norm*/results_run_*_model*.csv",      # 9
+        # "*_150_interaction_true_norm*/results_run_*_model*.csv",      # 10
+        # "*_150_interaction_false_off*/results_run_*_model*.csv",      # 11
+        # "*_150_interaction_true_off*/results_run_*_model*.csv",      # 12
 
-        # "*_300_interaction_false_norm*/results_run_*_model*.csv",
-        # "*_300_interaction_true_norm*/results_run_*_model*.csv",
-        # "*_300_interaction_false_off*/results_run_*_model*.csv",
-        "*_300_interaction_true_off*/results_run_*_model*.csv"
+        # "*_300_interaction_false_norm*/results_run_*_model*.csv",      # 13
+        # "*_300_interaction_true_norm*/results_run_*_model*.csv",      # 14
+        "*_300_interaction_false_off*/results_run_*_model*.csv",      # 15
+        # "*_300_interaction_true_off*/results_run_*_model*.csv"      # 16
     ]
 
     directory_path = r'C:\Users\Max\PycharmProjects\mesa\results'
@@ -524,21 +523,11 @@ def average_load_profiles_models_one_agent():
     result_df_recharge_power['average'] = result_df_recharge_power['total_recharge_power'].mean(axis=1)
     result_df_recharge_power['percentile_5'] = result_df_recharge_power['total_recharge_power'].quantile(0.05, axis=1)
     result_df_recharge_power['percentile_95'] = result_df_recharge_power['total_recharge_power'].quantile(0.95, axis=1)
-    # result_df_recharge_power.set_index('timestamp', inplace=True)
-
-    # Extract the hour and minute components from the timestamp
     result_df_recharge_power['hour'] = result_df_recharge_power.index.hour
     result_df_recharge_power['minute'] = result_df_recharge_power.index.minute
-
-    # Group the data by hour and quarter hour and calculate the average
     df_grouped = result_df_recharge_power.groupby(['hour', 'minute']).mean()
-
-    # Reset the index to turn the grouped columns into regular columns
     df_grouped.reset_index(inplace=True)
-
-    # Remove the unnecessary columns
     df_grouped = df_grouped[['hour', 'minute', 'average', 'percentile_5', 'percentile_95']]
-
     df_grouped['minute'] = df_grouped['minute'].astype(str).str.zfill(2)
     df_grouped['time'] = df_grouped['hour'].astype(str) + ':' + df_grouped['minute'].astype(str)
 
@@ -918,10 +907,7 @@ def all_model_results_and_average():
         result_df_recharge_power['percentile_5'] = result_df_recharge_power['total_recharge_power'].quantile(0.05, axis=1)
         result_df_recharge_power['percentile_95'] = result_df_recharge_power['total_recharge_power'].quantile(0.95, axis=1)
 
-        # Concatenate the dataframes from 'list_of_df_total_load'
         result_df_total_load = pd.concat(list_of_df_load, axis=1)
-
-        # Calculate the average, 5th percentile, and 95th percentile for each row
         result_df_total_load['average'] = result_df_total_load.mean(axis=1)
         result_df_total_load['percentile_5'] = result_df_total_load.quantile(0.05, axis=1)
         result_df_total_load['percentile_95'] = result_df_total_load.quantile(0.95, axis=1)
@@ -934,18 +920,21 @@ def all_model_results_and_average():
         y2 = result_df_total_load['percentile_95']
         y3 = list_of_df_transformer_capacity[0]
         y4 = list_of_df_transformer_capacity[0] * 1.5
+        # y5 = result_df_recharge_power['average']
 
         f, (ax, ax2) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
 
         # Plot the data on both subplots
         ax.plot(x, y, label='Average Total Load', color='blue', linewidth=1.5)
+        # ax.plot(x, y5, label='Average Charging Load', color='blue', linestyle='dotted', linewidth=1.5)
         ax.plot(x, y1, label='5% Percentile', color='darkgrey', linewidth=0.5)
         ax.plot(x, y2, label='95% Percentile', color='darkgrey', linewidth=0.5)
         ax.plot(x, y3, label='Transformer Capacity 100%', color='#008000')
         ax.plot(x, y4, label='Transformer Capacity 150%', color='#ff0000')
         ax.fill_between(result_df_total_load.index, y1, y2, color='grey', alpha=0.1, label='5% - 95% Percentile')
 
-        ax2.plot(x, y, label='Average Total Load', color='blue', linewidth=2)
+        ax2.plot(x, y, label='Average Total Load', color='blue', linewidth=1.5)
+        # ax2.plot(x, y5, label='Average Charging Load', color='blue', linestyle='dotted', linewidth=1.5)
         ax2.plot(x, y1, label='5% Percentile', color='darkgrey', linewidth=0.5)
         ax2.plot(x, y2, label='95% Percentile', color='darkgrey', linewidth=0.5)
         ax2.plot(x, y3, label='Transformer Capacity 100%', color='#008000')
@@ -988,7 +977,7 @@ def all_model_results_and_average():
 
         title = "Scenario " + str(j + 1)
         f.suptitle(title)
-        f.text(0.02, 0.55, 'Charging Power [kW]', va='center', rotation='vertical')
+        f.text(0.02, 0.55, 'Load [kW]', va='center', rotation='vertical')
         # f.text(0.5, 0.2, 'Date', ha='center')
 
         spacing = 0.005
@@ -1429,23 +1418,19 @@ def transformer_ueberlastung(split=False):
             concatenated_df['utilization'] = round(concatenated_df['total_load'], 2) / concatenated_df[
                 'transformer_capacity']
 
-            # Define the bins
             bins = [0.0, 1.0, 1.25, 1.5, 2.0, float('inf')]
             labels = ['x <= 100%', '100% < x <= 125%', '125% < x <= 150%', '150% < x <= 200%', 'x > 200%']
             # Use pd.cut() to categorize transformer load percentages into bins
             concatenated_df['load_category'] = pd.cut(concatenated_df['utilization'], bins=bins, labels=labels,
                                                       right=True)
 
-            # Use value_counts() to count occurrences in each bin
             load_category_counts = concatenated_df['load_category'].value_counts()
             scenario_name = titles[j]
             scenario_data[scenario_name] = load_category_counts.to_dict()
         except:
             continue
 
-    # Convert the dictionary to a DataFrame
     df_result = pd.DataFrame(scenario_data)
-    # Transpose the DataFrame to have 'Load Category' as columns and 'Scenario' as the index
     df_result = df_result.transpose()
 
     df_result = df_result[
@@ -1783,11 +1768,11 @@ if __name__ == '__main__':
     # spitzenlast_pro_auto()
     # plot_all()      # Run this to have comparison for different scenarios one fleet size
     # prozentuale_ueberlastung(split=True)   # TODO CREATE PLOT
-    # transformer_ueberlastung(split=True)   # TODO CREATE PLOT
+    transformer_ueberlastung(split=True)   # TODO CREATE PLOT
     # transformer_ueberlastung_prozent(split=True)  # TODO CREATE PLOT
     # box_plot_transformatorauslastung()  # TODO Create Boxplot and copy table
     # all_model_results_and_average()    # TODO run this to create average results
     # data_export_for_correlation()
-    calc_correlation_between_average_load_profiles()
-    calc_correlation_between_5_percentile_load_profiles()
-    calc_correlation_between_95_percentile_load_profiles()
+    # calc_correlation_between_average_load_profiles()
+    # calc_correlation_between_5_percentile_load_profiles()
+    # calc_correlation_between_95_percentile_load_profiles()
