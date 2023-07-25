@@ -454,11 +454,10 @@ def create_diff_plots_all_runs_no_interaction():
     # plt.tight_layout()
     plt.show()
 
-
-def average_load_profiles_models_one_agent():
+def average_load_profiles_models_one_agent_weekday_weekend():
     start_date = '2008-07-13'
     end_date = '2008-07-27'
-    title = 'Average Charging Profile\nScenario 15'
+    title = 'Average Charging Profile Weekday\nScenario 15'
     scenarios = [
         # "*_025_interaction_false_norm*/results_run_*_model*.csv",     # 1
         # "*_025_interaction_true_norm*/results_run_*_model*.csv",      # 2
@@ -479,6 +478,114 @@ def average_load_profiles_models_one_agent():
         # "*_300_interaction_true_norm*/results_run_*_model*.csv",      # 14
         "*_300_interaction_false_off*/results_run_*_model*.csv",      # 15
         # "*_300_interaction_true_off*/results_run_*_model*.csv"      # 16
+    ]
+    directory_path = r'C:\Users\Max\PycharmProjects\mesa\results'
+    directory = Path(directory_path)
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    list_of_df_customer_load = []
+    list_of_df_recharge_power = []
+
+    for j, scenario in enumerate(scenarios):
+
+        csv_files = list(directory.glob(scenario))
+        csv_files = sorted(csv_files)
+
+        for i, csv_file in enumerate(csv_files):
+            # Read the CSV file into a DataFrame
+            df = pd.read_csv(csv_file)
+
+            name = str(csv_file)
+            if '025' in name:
+                df = df / 25
+            elif '050' in name:
+                df = df / 50
+            elif '150' in name:
+                df = df / 150
+            elif '300' in name:
+                df = df / 300
+
+            x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
+            x_axis_time = x_axis_time[:-1]
+
+            df['timestamp'] = x_axis_time
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+            # Set the 'timestamp' column as the index
+            df.set_index('timestamp', inplace=True)
+            list_of_df_recharge_power.append(df['total_recharge_power'])
+            list_of_df_customer_load.append(df['total_customer_load'])
+
+    result_df_recharge_power = pd.concat(list_of_df_recharge_power, axis=1)
+
+    result_df_recharge_power['average'] = result_df_recharge_power['total_recharge_power'].mean(axis=1)
+    result_df_recharge_power['percentile_5'] = result_df_recharge_power['total_recharge_power'].quantile(0.05, axis=1)
+    result_df_recharge_power['percentile_95'] = result_df_recharge_power['total_recharge_power'].quantile(0.95, axis=1)
+    result_df_recharge_power['hour'] = result_df_recharge_power.index.hour
+    result_df_recharge_power['minute'] = result_df_recharge_power.index.minute
+    result_df_recharge_power['weekday'] = result_df_recharge_power.index.weekday
+
+    # wochentage = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+
+    result_df_recharge_power['day_type'] = result_df_recharge_power['weekday'].apply(
+        lambda x: 'Weekday' if x < 5 else 'Weekend')
+    df_grouped = result_df_recharge_power[result_df_recharge_power['day_type'] == 'Weekday']
+
+    df_grouped = df_grouped.groupby(['hour', 'minute']).mean()
+    df_grouped.reset_index(inplace=True)
+    df_grouped = df_grouped[['hour', 'minute', 'average', 'percentile_5', 'percentile_95']]
+    df_grouped['minute'] = df_grouped['minute'].astype(str).str.zfill(2)
+    df_grouped['time'] = df_grouped['hour'].astype(str) + ':' + df_grouped['minute'].astype(str)
+
+    df_grouped.plot(x='time', y='average', ax=ax, label='Average Charging Profile', color='blue', linestyle='dotted', linewidth=1.5)
+    df_grouped.plot(x='time', y='percentile_5', ax=ax, label='5% Percentile', color='darkgrey', linewidth=0.5)
+    df_grouped.plot(x='time', y='percentile_95', ax=ax, label='95% Percentile', color='darkgrey', linewidth=0.5)
+
+    ax.fill_between(df_grouped['time'], df_grouped['percentile_5'], df_grouped['percentile_95'], color='grey',
+                    alpha=0.1, label='5% - 95% Percentile')
+
+    ax.set_title(title)
+    ax.set_ylabel('Charging Power\n[kW]')
+    ax.legend().remove()
+    ax.set_xlim(0, 96)
+    # ax.set_ylim(0, 1.2)
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    tick_positions = df_grouped.index[::4]
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(df_grouped['time'][::4], rotation=90)
+    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', frameon=False)
+    plt.tight_layout()
+    fig_name = title.replace('\n', "")
+    plt.savefig(fig_name, dpi=300)
+    plt.show()
+
+
+
+def average_load_profiles_models_one_agent():
+    start_date = '2008-07-13'
+    end_date = '2008-07-27'
+    title = 'Average Charging Profile\nScenario 16'
+    scenarios = [
+        # "*_025_interaction_false_norm*/results_run_*_model*.csv",     # 1
+        # "*_025_interaction_true_norm*/results_run_*_model*.csv",      # 2
+        # "*_025_interaction_false_off*/results_run_*_model*.csv",      # 3
+        # "*_025_interaction_true_off*/results_run_*_model*.csv",      # 4
+
+        # "*_050_interaction_false_norm*/results_run_*_model*.csv",      # 5
+        # "*_050_interaction_true_norm*/results_run_*_model*.csv",      # 6
+        # "*_050_interaction_false_off*/results_run_*_model*.csv",      # 7
+        # "*_050_interaction_true_off*/results_run_*_model*.csv",      # 8
+
+        # "*_150_interaction_false_norm*/results_run_*_model*.csv",      # 9
+        # "*_150_interaction_true_norm*/results_run_*_model*.csv",      # 10
+        # "*_150_interaction_false_off*/results_run_*_model*.csv",      # 11
+        # "*_150_interaction_true_off*/results_run_*_model*.csv",      # 12
+
+        # "*_300_interaction_false_norm*/results_run_*_model*.csv",      # 13
+        # "*_300_interaction_true_norm*/results_run_*_model*.csv",      # 14
+        # "*_300_interaction_false_off*/results_run_*_model*.csv",      # 15
+        "*_300_interaction_true_off*/results_run_*_model*.csv"      # 16
     ]
 
     directory_path = r'C:\Users\Max\PycharmProjects\mesa\results'
@@ -993,6 +1100,141 @@ def all_model_results_and_average():
         plt.show()
 
 
+
+def compare_interaction_no_interaction():
+    start_date = '2008-07-13'
+    end_date = '2008-07-27'
+
+    scenarios = [
+        # "*_025_interaction_false_norm*/results_run_*_model*.csv",
+        # "*_025_interaction_true_norm*/results_run_*_model*.csv",
+        # "*_025_interaction_false_off*/results_run_*_model*.csv",
+        # "*_025_interaction_true_off*/results_run_*_model*.csv",
+        #
+        # "*_050_interaction_false_norm*/results_run_*_model*.csv",
+        # "*_050_interaction_true_norm*/results_run_*_model*.csv",
+        # "*_050_interaction_false_off*/results_run_*_model*.csv",
+        # "*_050_interaction_true_off*/results_run_*_model*.csv",
+        #
+        # "*_150_interaction_false_norm*/results_run_*_model*.csv",
+        # "*_150_interaction_true_norm*/results_run_*_model*.csv",
+        # "*_150_interaction_false_off*/results_run_*_model*.csv",
+        # "*_150_interaction_true_off*/results_run_*_model*.csv",
+
+        # "*_300_interaction_false_norm*/results_run_*_model*.csv",
+        # "*_300_interaction_true_norm*/results_run_*_model*.csv",
+        "*_300_interaction_false_off*/results_run_*_model*.csv",
+        "*_300_interaction_true_off*/results_run_*_model*.csv"
+    ]
+
+    directory_path = r'C:\Users\Max\PycharmProjects\mesa\results'
+    directory = Path(directory_path)
+
+    end_result = []
+
+    for j, scenario in enumerate(scenarios):
+        csv_files = list(directory.glob(scenario))
+        csv_files = sorted(csv_files)
+
+        list_of_df_recharge_power = []
+        list_of_df_customer_load = []
+        list_of_df_transformer_capacity = []
+        list_of_df_load = []
+
+        for i, csv_file in enumerate(csv_files):
+            df = pd.read_csv(csv_file)
+            x_axis_time = pd.date_range(start=start_date, end=end_date, freq='15T')
+            x_axis_time = x_axis_time[:-1]
+
+            df['timestamp'] = x_axis_time
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+            # Set the 'timestamp' column as the index
+            df.set_index('timestamp', inplace=True)
+
+            list_of_df_recharge_power.append(df['total_recharge_power'])
+            list_of_df_customer_load.append(df['total_customer_load'])
+            list_of_df_transformer_capacity.append(df['transformer_capacity'])
+            list_of_df_load.append(df['total_load'])
+
+        result_df_recharge_power = pd.concat(list_of_df_recharge_power, axis=1)
+        result_df_recharge_power['average'] = result_df_recharge_power['total_recharge_power'].mean(axis=1)
+
+        result_df_total_load = pd.concat(list_of_df_load, axis=1)
+        result_df_total_load['average'] = result_df_total_load.mean(axis=1)
+
+        name = str(csv_file)
+        end_result.append(result_df_total_load)
+
+    result_df_total_load_0 = end_result[0]
+    result_df_total_load_1 = end_result[1]
+
+    x = result_df_total_load_0.index
+    y = result_df_total_load_0['average']
+    y1 = result_df_total_load_1['average']
+    y3 = list_of_df_transformer_capacity[0]
+    y4 = list_of_df_transformer_capacity[0] * 1.5
+    # y5 = result_df_recharge_power['average']
+
+    f, (ax, ax2) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
+
+    # Plot the data on both subplots
+    ax.plot(x, y, label='Average Total Load', color='blue', linewidth=1.5)
+    ax.plot(x, y1, label='Average Total Load Interaction', color='black', linewidth=1.5)
+    # ax.plot(x, y5, label='Average Charging Load', color='blue', linestyle='dotted', linewidth=1.5)
+    ax.plot(x, y3, label='Transformer Capacity 100%', color='#008000')
+    ax.plot(x, y4, label='Transformer Capacity 150%', color='#ff0000')
+
+    ax2.plot(x, y, label='Average Total Load', color='blue', linewidth=1.5)
+    ax2.plot(x, y1, label='Average Total Load Interaction', color='black', linewidth=1.5)
+    # ax2.plot(x, y5, label='Average Charging Load', color='blue', linestyle='dotted', linewidth=1.5)
+    ax2.plot(x, y3, label='Transformer Capacity 100%', color='#008000')
+    ax2.plot(x, y4, label='Transformer Capacity 150%', color='#ff0000')
+
+
+    ax.set_ylim(350, 1800)
+    ax2.set_ylim(0, 350)
+
+    # Customize plot appearance
+    ax.spines['bottom'].set_visible(False)
+    ax2.spines['top'].set_visible(False)
+    ax.xaxis.tick_top()
+    ax.tick_params(top=False, labeltop=False)  # don't put tick labels at the top
+    ax2.xaxis.tick_bottom()
+    plt.xticks(rotation=90)
+
+    d = 0.015  # how big to make the diagonal lines in axes coordinates
+    kwargs = dict(transform=ax.transAxes, linewidth=0.5, color='k', clip_on=False)
+    ax.plot((-d, +d), (-d, +d), **kwargs)  # top-left diagonal
+    ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+
+    kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+    ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
+    ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
+
+    ax2.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%d-%m'))
+
+    title = "Comparison Scenario 15 and 16"
+    f.suptitle(title)
+    f.text(0.02, 0.55, 'Load [kW]', va='center', rotation='vertical')
+    # f.text(0.5, 0.2, 'Date', ha='center')
+
+    spacing = 0.005
+    ax.set_position([0.125, 0.6, 0.775, 0.25])
+    ax2.set_position([0.125, 0.6 - ax.get_position().height - spacing, 0.775, 0.25])
+
+    handles, labels = ax.get_legend_handles_labels()
+    f.legend(handles, labels, loc='lower center', ncol=2, frameon=False, bbox_to_anchor=(0.5, 0.09))
+
+    plt.xlim(result_df_total_load_0.index.min(), result_df_total_load_0.index.max())  # Set the x-axis limits
+    fig_name = title + '_weekly_profile_total_comparison_15_16'
+    plt.savefig(fig_name, dpi=300)
+    plt.show()
+
+
+
+
 def print_model_run_one_plot():
     start_date = '2008-07-13'
     end_date = '2008-07-27'
@@ -1249,28 +1491,30 @@ def prozentuale_ueberlastung(split=False):
                   'Scenario 15']
     else:
         scenarios = [
-            "*_025_interaction_false_norm*/results_run_*_model*.csv",
-            "*_025_interaction_true_norm*/results_run_*_model*.csv",
-            "*_025_interaction_false_off*/results_run_*_model*.csv",
-            "*_025_interaction_true_off*/results_run_*_model*.csv",
-
-            "*_050_interaction_false_norm*/results_run_*_model*.csv",
-            "*_050_interaction_true_norm*/results_run_*_model*.csv",
-            "*_050_interaction_false_off*/results_run_*_model*.csv",
-            "*_050_interaction_true_off*/results_run_*_model*.csv",
-
-            "*_150_interaction_false_norm*/results_run_*_model*.csv",
-            "*_150_interaction_true_norm*/results_run_*_model*.csv",
-            "*_150_interaction_false_off*/results_run_*_model*.csv",
-            "*_150_interaction_true_off*/results_run_*_model*.csv",
+            # "*_025_interaction_false_norm*/results_run_*_model*.csv",
+            # "*_025_interaction_true_norm*/results_run_*_model*.csv",
+            # "*_025_interaction_false_off*/results_run_*_model*.csv",
+            # "*_025_interaction_true_off*/results_run_*_model*.csv",
+            #
+            # "*_050_interaction_false_norm*/results_run_*_model*.csv",
+            # "*_050_interaction_true_norm*/results_run_*_model*.csv",
+            # "*_050_interaction_false_off*/results_run_*_model*.csv",
+            # "*_050_interaction_true_off*/results_run_*_model*.csv",
+            #
+            # "*_150_interaction_false_norm*/results_run_*_model*.csv",
+            # "*_150_interaction_true_norm*/results_run_*_model*.csv",
+            # "*_150_interaction_false_off*/results_run_*_model*.csv",
+            # "*_150_interaction_true_off*/results_run_*_model*.csv",
 
             "*_300_interaction_false_norm*/results_run_*_model*.csv",
             "*_300_interaction_true_norm*/results_run_*_model*.csv",
             "*_300_interaction_false_off*/results_run_*_model*.csv",
             "*_300_interaction_true_off*/results_run_*_model*.csv"
         ]
-        titles = ['Scenario 1', 'Scenario 2', 'Scenario 3', 'Scenario 4', 'Scenario 5', 'Scenario 6', 'Scenario 7',
-                  'Scenario 8', 'Scenario 9', 'Scenario 10', 'Scenario 11', 'Scenario 12', 'Scenario 13', 'Scenario 14',
+        # titles = ['Scenario 1', 'Scenario 2', 'Scenario 3', 'Scenario 4', 'Scenario 5', 'Scenario 6', 'Scenario 7',
+        #           'Scenario 8', 'Scenario 9', 'Scenario 10', 'Scenario 11', 'Scenario 12', 'Scenario 13', 'Scenario 14',
+        #           'Scenario 15', 'Scenario 16']
+        titles = ['Scenario 13', 'Scenario 14',
                   'Scenario 15', 'Scenario 16']
 
     scenario_data = {}
@@ -1366,30 +1610,30 @@ def transformer_ueberlastung(split=False):
                   'Scenario 15']
     else:
         scenarios = [
-            "*_025_interaction_false_norm*/results_run_*_model*.csv",
-            "*_025_interaction_true_norm*/results_run_*_model*.csv",
-            "*_025_interaction_false_off*/results_run_*_model*.csv",
-            "*_025_interaction_true_off*/results_run_*_model*.csv",
-
-            "*_050_interaction_false_norm*/results_run_*_model*.csv",
-            "*_050_interaction_true_norm*/results_run_*_model*.csv",
-            "*_050_interaction_false_off*/results_run_*_model*.csv",
-            "*_050_interaction_true_off*/results_run_*_model*.csv",
-
-            "*_150_interaction_false_norm*/results_run_*_model*.csv",
-            "*_150_interaction_true_norm*/results_run_*_model*.csv",
-            "*_150_interaction_false_off*/results_run_*_model*.csv",
-            "*_150_interaction_true_off*/results_run_*_model*.csv",
+            # "*_025_interaction_false_norm*/results_run_*_model*.csv",
+            # "*_025_interaction_true_norm*/results_run_*_model*.csv",
+            # "*_025_interaction_false_off*/results_run_*_model*.csv",
+            # "*_025_interaction_true_off*/results_run_*_model*.csv",
+            #
+            # "*_050_interaction_false_norm*/results_run_*_model*.csv",
+            # "*_050_interaction_true_norm*/results_run_*_model*.csv",
+            # "*_050_interaction_false_off*/results_run_*_model*.csv",
+            # "*_050_interaction_true_off*/results_run_*_model*.csv",
+            #
+            # "*_150_interaction_false_norm*/results_run_*_model*.csv",
+            # "*_150_interaction_true_norm*/results_run_*_model*.csv",
+            # "*_150_interaction_false_off*/results_run_*_model*.csv",
+            # "*_150_interaction_true_off*/results_run_*_model*.csv",
 
             "*_300_interaction_false_norm*/results_run_*_model*.csv",
             "*_300_interaction_true_norm*/results_run_*_model*.csv",
             "*_300_interaction_false_off*/results_run_*_model*.csv",
             "*_300_interaction_true_off*/results_run_*_model*.csv"
         ]
-        titles = ['Scenario 1', 'Scenario 2', 'Scenario 3', 'Scenario 4', 'Scenario 5', 'Scenario 6', 'Scenario 7',
-                  'Scenario 8', 'Scenario 9', 'Scenario 10', 'Scenario 11', 'Scenario 12', 'Scenario 13', 'Scenario 14',
-                  'Scenario 15', 'Scenario 16']
-
+        # titles = ['Scenario 1', 'Scenario 2', 'Scenario 3', 'Scenario 4', 'Scenario 5', 'Scenario 6', 'Scenario 7',
+        #           'Scenario 8', 'Scenario 9', 'Scenario 10', 'Scenario 11', 'Scenario 12', 'Scenario 13', 'Scenario 14',
+        #           'Scenario 15', 'Scenario 16']
+        titles = ['Scenario 13', 'Scenario 14', 'Scenario 15', 'Scenario 16']
 
 
     scenario_data = {}
@@ -1576,7 +1820,34 @@ def transformer_ueberlastung_prozent(split=False):
         plt.savefig('Transformer Overloading all Scenarios.png', dpi=300)
     plt.show()
 
+
+
 def box_plot_transformatorauslastung():
+    scenarios = [
+        "*_025_interaction_false_norm*/results_run_*_model*.csv",
+        "*_025_interaction_true_norm*/results_run_*_model*.csv",
+        "*_025_interaction_false_off*/results_run_*_model*.csv",
+        "*_025_interaction_true_off*/results_run_*_model*.csv",
+
+        "*_050_interaction_false_norm*/results_run_*_model*.csv",
+        "*_050_interaction_true_norm*/results_run_*_model*.csv",
+        "*_050_interaction_false_off*/results_run_*_model*.csv",
+        "*_050_interaction_true_off*/results_run_*_model*.csv",
+
+        "*_150_interaction_false_norm*/results_run_*_model*.csv",
+        "*_150_interaction_true_norm*/results_run_*_model*.csv",
+        "*_150_interaction_false_off*/results_run_*_model*.csv",
+        "*_150_interaction_true_off*/results_run_*_model*.csv",
+
+        "*_300_interaction_false_norm*/results_run_*_model*.csv",
+        "*_300_interaction_true_norm*/results_run_*_model*.csv",
+        "*_300_interaction_false_off*/results_run_*_model*.csv",
+        "*_300_interaction_true_off*/results_run_*_model*.csv"
+    ]
+    titles = ['Scenario 1', 'Scenario 2', 'Scenario 3', 'Scenario 4', 'Scenario 5', 'Scenario 6', 'Scenario 7',
+              'Scenario 8', 'Scenario 9', 'Scenario 10', 'Scenario 11', 'Scenario 12', 'Scenario 13', 'Scenario 14',
+              'Scenario 15', 'Scenario 16']
+
     start_date = '2008-07-13'
     end_date = '2008-07-27'
 
@@ -1589,9 +1860,8 @@ def box_plot_transformatorauslastung():
     x_tick_labels = []
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    for j in range(1, 17):
-        string = scenario_string(j)
-        csv_files = list(directory.glob(string))
+    for j, scenario in enumerate(scenarios):
+        csv_files = list(directory.glob(scenario))
 
         df_results_total = []
 
@@ -1609,7 +1879,7 @@ def box_plot_transformatorauslastung():
             df_results_total.append(df_results)
 
         try:
-            position = j
+            position = j + 1
             positions.append(position)
 
             concatenated_df = pd.concat(df_results_total, ignore_index=False)
@@ -1617,9 +1887,9 @@ def box_plot_transformatorauslastung():
                 'transformer_capacity'] * 100
 
             # print(concatenated_df['utilization'].std())
-            scenario_name = 'Scenario {}'.format(j)
+            scenario_name = titles[j]
 
-            x_tick_labels.append(scenario_name)
+            x_tick_labels.append(titles[j])
             ax.boxplot(concatenated_df['utilization'], patch_artist=True, positions=[position])#, showfliers=False)
 
             median_values = concatenated_df.median()
@@ -1767,8 +2037,8 @@ if __name__ == '__main__':
     # create_heat_map()  # TODO Create Heatmap
     # spitzenlast_pro_auto()
     # plot_all()      # Run this to have comparison for different scenarios one fleet size
-    # prozentuale_ueberlastung(split=True)   # TODO CREATE PLOT
-    transformer_ueberlastung(split=True)   # TODO CREATE PLOT
+    # prozentuale_ueberlastung(split=False)   # TODO CREATE PLOT
+    # transformer_ueberlastung(split=False)   # TODO CREATE PLOT
     # transformer_ueberlastung_prozent(split=True)  # TODO CREATE PLOT
     # box_plot_transformatorauslastung()  # TODO Create Boxplot and copy table
     # all_model_results_and_average()    # TODO run this to create average results
@@ -1776,3 +2046,5 @@ if __name__ == '__main__':
     # calc_correlation_between_average_load_profiles()
     # calc_correlation_between_5_percentile_load_profiles()
     # calc_correlation_between_95_percentile_load_profiles()
+    # average_load_profiles_models_one_agent_weekday_weekend()   # create average charging profile for one agent, weekend and weekday
+    compare_interaction_no_interaction()
