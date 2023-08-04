@@ -569,6 +569,9 @@ class ElectricVehicle(Agent):
         # less kwh is reaching the car
         real_charging_value_station = charging_value_station * efficiency / 100
 
+        # TO-DO: Check this value!
+        # function claims that charging_value is in kW
+        # but it seems to me that the value is in kWh
         charging_value = min(empty_battery_capacity,
                              possible_soc_capacity,
                              real_charging_value_car,
@@ -651,6 +654,10 @@ class ElectricVehicle(Agent):
         This priority algorithm is based on different factors, such as
         SOC, Time the EV is plugged in, Next trip consumption
         https://www.researchgate.net/publication/332142057_Priority_Determination_of_Charging_Electric_Vehicles_based_on_Trip_Distance
+
+        RETURNS: None 
+
+        Priority level for each car: min = 3, max = 9
         """
         soc = self.get_soc()
         if soc <= 20:
@@ -667,6 +674,7 @@ class ElectricVehicle(Agent):
         # Calculate the consumption next trip related to the battery capacity
         # Next trip needs a large amount of battery capacity then prioritize charging
 
+        # TO-DO: range anxiety is always accounted for in the relative need calculation
         relative_need = consumption_next_trip_range_anx / battery_capacity * 100
 
         if relative_need <= 20:
@@ -717,6 +725,10 @@ class ElectricVehicle(Agent):
         self.final_charging_value = value
 
     def get_final_charging_value(self) -> bool:
+        """ 
+        -> bool is a type hint
+        i.e. the function is expected to return a bool value
+        """
         return self.final_charging_value
 
     def interaction_charging_values(self):
@@ -748,24 +760,33 @@ class ElectricVehicle(Agent):
         for charging_value in electric_vehicles:
             if charging_value is not None:
                 total_charging_value += charging_value.get_charging_value()
+                # in the above line of code, the get_charging_value simply returns the charging_value that has
+                # previously been set in the calc_charging_value function. So here we are simply fetching the
+                # charging value. This is also a kWh value
 
         # kw total charging power
-        total_charging_power = aux.convert_kw_kwh(kwh=total_charging_value)
+        total_charging_power = aux.convert_kw_kwh(kwh=total_charging_value)  # converts the kWh value to kW
         all_priorities = []
         for prio in electric_vehicles:
             all_priorities.append(prio.get_charging_priority())
 
+        # only enter if transformer capacity is exceeded
+        # else nothing happens -> the calculated charging_power remains as is for all the car agents
         if total_charging_power > capacity:
             highest_priority = max(all_priorities)
             lowest_priority = min(all_priorities)
 
-            if highest_priority == lowest_priority:
+            if highest_priority == lowest_priority:  # all cars have the same priority
                 distributed = 0     # kw
                 while True:
                     # get all agents that are completed / have final_charging_value = True
                     completed_charging_agents = []
                     for completed in electric_vehicles:
-                        final = completed.get_final_charging_value()
+                        final = completed.get_final_charging_value()  # TO-DO: what is this?
+                        # likely that get_final_charging_value is set after some charging happens. default is False.
+                        # so if cars are done charging then the value is True
+                        # --> NO
+                        # this is to track 'before-interaction' and 'after-interaction' values
                         if final:
                             completed_charging_agents.append(completed)
                     # number of not finalized charging values
@@ -774,24 +795,29 @@ class ElectricVehicle(Agent):
                     available_capacity = capacity - distributed
                     if remaining_agents > 0:
                         charging_power_per_agent = available_capacity / remaining_agents
+                        # equal distribution of available capacity across remaining agents
                     else:
                         charging_power_per_agent = 0
 
                     for ev in electric_vehicles:
-                        if not ev.get_final_charging_value():
+                        if not ev.get_final_charging_value():  # car is not done charging; "not FALSE"
                             # kwh
                             charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
                             # kwh
                             new_charging_value = min(charging_value_per_agent, ev.get_charging_value())
                             # kwh, kwh
                             if new_charging_value >= ev.get_charging_value():
-                                ev.revert_charge()
+                                ev.revert_charge()  # to effectively go back a timestep and revert charging so that battery level is such
+                                # that no charging happened
                                 ev.set_charging_value(new_charging_value)
                                 ev.set_final_charging_value(True)
                                 ev.charge()
                                 new_charging_power = aux.convert_kw_kwh(kwh=new_charging_value)
                                 distributed += new_charging_power
 
+                    # TO-DO: contineu here.
+                    # quick idea, could be wrong: feels like a hard-coded thing - 2 times check if final charging is TRUE...
+                    # potential to make a function here?
                     completed_charging_agents_after = []
                     for completed in electric_vehicles:
                         if completed.get_final_charging_value():
