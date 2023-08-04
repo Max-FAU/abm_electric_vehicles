@@ -14,6 +14,6 @@ TRANSFORMER_VALUES_PATH = INPUT_PATH / 'single_phase_transformers.json'
 MEDIAN_TRIP_LEN_PATH = INPUT_PATH / 'median_trip_length.csv'
 
 # Change this to specify where your mobility data is stored
-MOBILITY_DATA_DIRECTORY_PATH = Path(r"D:\Max_Mobility_Profiles\quarterly_simulation")
+MOBILITY_DATA_DIRECTORY_PATH = Path(r"E:\PrakharSims\Flex_TechPotential\Resolution_15min_4h\quarterly_simulation")
 
 RESULT_PATH = PROJECT_DIR / 'results'
