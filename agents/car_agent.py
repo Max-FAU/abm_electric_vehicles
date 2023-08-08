@@ -685,6 +685,11 @@ class ElectricVehicle(Agent):
             prio_next_trip = 3
 
         # in hours
+        # FIXME
+        # TODO: this should also account for the soc level
+        # currently, if very close to departure, priority is set to high
+        # but it should not be high if soc is already 100% or soc_limit - that is a parameter, use that here!
+        # therefore, add a check for SOC
         self.set_charging_duration()
         charging_duration = self.get_charging_duration()
         if charging_duration <= 3:
@@ -746,7 +751,7 @@ class ElectricVehicle(Agent):
             if isinstance(power_customer, PowerCustomer):
                 customer_load += power_customer.get_current_load_kw()
 
-        # Calculate the available capacity to charge
+        # Calculate the available capacity to charge EVs
         capacity = transformer_capacity - customer_load
 
         # all electric vehicle agents
@@ -780,17 +785,18 @@ class ElectricVehicle(Agent):
                 distributed = 0     # kw
                 while True:
                     # get all agents that are completed / have final_charging_value = True
+                    # while loop is ended by a break - no other end
                     completed_charging_agents = []
                     for completed in electric_vehicles:
-                        final = completed.get_final_charging_value()  # TO-DO: what is this?
-                        # likely that get_final_charging_value is set after some charging happens. default is False.
-                        # so if cars are done charging then the value is True
-                        # --> NO
+                        final = completed.get_final_charging_value()
                         # this is to track 'before-interaction' and 'after-interaction' values
                         if final:
+                            # after-interaction reduced charging values are set
                             completed_charging_agents.append(completed)
+
                     # number of not finalized charging values
                     remaining_agents = len(electric_vehicles) - len(completed_charging_agents)
+                    # when executed for the first time, this is going to be non-zero
 
                     available_capacity = capacity - distributed
                     if remaining_agents > 0:
@@ -800,13 +806,18 @@ class ElectricVehicle(Agent):
                         charging_power_per_agent = 0
 
                     for ev in electric_vehicles:
-                        if not ev.get_final_charging_value():  # car is not done charging; "not FALSE"
+                        if not ev.get_final_charging_value():  # after-interaction charging value is not already set ; "not FALSE"
                             # kwh
                             charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
                             # kwh
                             new_charging_value = min(charging_value_per_agent, ev.get_charging_value())
                             # kwh, kwh
                             if new_charging_value >= ev.get_charging_value():
+                                # ??? - what about the case when new_charging_value<ev.get_charging_value() -> how is distributed updated?
+                                # ??? how is the set_final_charging_value set to True?
+                                # !!! - this is done in the next few lines (827 onwards)
+                                # ??? does this case ever happen? Because just set to minimum before this if statement - happens for equal
+                                # ??? why was doing this necessary?
                                 ev.revert_charge()  # to effectively go back a timestep and revert charging so that battery level is such
                                 # that no charging happened
                                 ev.set_charging_value(new_charging_value)
@@ -815,9 +826,9 @@ class ElectricVehicle(Agent):
                                 new_charging_power = aux.convert_kw_kwh(kwh=new_charging_value)
                                 distributed += new_charging_power
 
-                    # TO-DO: contineu here.
-                    # quick idea, could be wrong: feels like a hard-coded thing - 2 times check if final charging is TRUE...
-                    # potential to make a function here?
+                    # in the previous lines of code, the interaction only reset the charging values for agents which satisfied the condition
+                    # new_charging_value >= ev.get_charging_value()
+                    # here, we continue for all other agents. After that, break to get out of the while loop
                     completed_charging_agents_after = []
                     for completed in electric_vehicles:
                         if completed.get_final_charging_value():
@@ -831,6 +842,8 @@ class ElectricVehicle(Agent):
 
                             for elec_vehic in electric_vehicles:
                                 if not elec_vehic.get_final_charging_value():
+                                    # final_charging_value has not been set, so set now.
+                                    # !!! - the agents which had new_charging_value<ev.get_charging_value() are set here.
                                     elec_vehic.revert_charge()
                                     charging_value_per_agent = aux.convert_kw_kwh(kw=charging_power_per_agent)
                                     elec_vehic.set_charging_value(charging_value_per_agent)
@@ -895,6 +908,10 @@ class ElectricVehicle(Agent):
                                 completed_charging_agents_after.append(completed)
 
                         # check if there are more completed agents after loop before
+                        # ??? the following comparison does not make sense at all
+                        # imo: completed_charging_agents will always be >= completed_charging_agents_after because not all agents
+                        # will satisfy the condition of new_charging_value >= ev.get_charging_value() in line 897
+                        # BUG: is it possible that there is comparison error in the next line?
                         if len(completed_charging_agents) == len(completed_charging_agents_after):
                             available_capacity = capacity - distributed
                             remaining_agents = len(agents_with_priority) - len(completed_charging_agents_after)
