@@ -1,5 +1,6 @@
 from mesa import Agent
 import json
+import numpy as np
 import pandas as pd
 import auxiliary as aux
 import random
@@ -27,7 +28,8 @@ class ElectricVehicle(Agent):
                  charging_eff: int,
                  target_soc: int,
                  charging_algo: bool,
-                 seed_value: int):
+                 seed_value: int,
+                 defect: bool):
 
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
@@ -42,6 +44,10 @@ class ElectricVehicle(Agent):
         self.target_soc = target_soc
         self.charging_algo = charging_algo
         self.seed_value = seed_value
+
+        # Initialize Agent attributes useful for evaluation of cooperation/defection in the DR program
+        self.defect = defect  # TODO - this happens in the self.complete_dr_initialization function
+        self.complete_dr_initialization()
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -163,6 +169,13 @@ class ElectricVehicle(Agent):
     def get_charging_power_dc(self):
         return self.charging_power_dc
 
+    def set_defection_probability(self):
+        if self.defect:
+            defect_prob = self.random.randint(0, 1)
+        else:
+            defect_prob = 0
+        self.defect = defect_prob
+
     def complete_initialization(self):
         """
         Run all functions to initialize the car values for the model.
@@ -174,6 +187,12 @@ class ElectricVehicle(Agent):
         self.set_number_of_car_model()
         self.set_charging_power_ac()
         self.set_charging_power_dc()
+
+    def complete_dr_initialization(self):
+        """
+        Run all functions to initialize the attributes for the car agents.
+        """
+        self.set_defection_probability()
 
     def load_matching_df(self) -> pd.DataFrame:
         """
@@ -755,10 +774,15 @@ class ElectricVehicle(Agent):
         capacity = transformer_capacity - customer_load
 
         # all electric vehicle agents
-        electric_vehicles = []
+        electric_vehicles_all = []  # all EVs are includeded in this list
+        electric_vehicles = []  # only EVs with defect = 0 are included here
         for electric_vehicle in all_agents:
             if isinstance(electric_vehicle, ElectricVehicle):
-                electric_vehicles.append(electric_vehicle)
+                # old code commented out
+                electric_vehicles_all.append(electric_vehicle)
+                # !!! remove those agents that have a defection probability of 1
+                if not electric_vehicle.defect:
+                    electric_vehicles.append(electric_vehicle)
 
         total_charging_value = 0
         # calculate the total charging values of all car agents in the model
@@ -965,6 +989,9 @@ class ElectricVehicle(Agent):
             for electric_vehicle in all_agents:
                 if isinstance(electric_vehicle, ElectricVehicle):
                     all_agents_ids.append(electric_vehicle.get_unique_id())
+
+            # TODO: here add a function to update the defect probability based on other agents' defect probabilities AND some randomness?
+            # or should it be called within the interaction function?
 
             current_agent_id = self.get_unique_id()
 

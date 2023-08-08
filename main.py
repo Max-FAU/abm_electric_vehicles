@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # end_date = '2008-07-14'
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
-    parser.add_argument('--model_runs', type=int, default=2, help='Number of model runs')
+    parser.add_argument('--model_runs', type=int, default=1, help='Number of model runs')
     parser.add_argument('--num_cars_normal', type=int, default=5, help='Number of normal cars')
     parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
@@ -32,14 +32,19 @@ if __name__ == '__main__':
     car_charging_eff = 90
     car_target_soc = 100
 
+    set_defection = False
+
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))
 
     model_results = []
     # Run the whole model multiple times
     for i in tqdm(range(model_runs), desc='Model Runs', leave=True, position=0):
+
         # Create each iteration of the model a new seed value
-        seed_value = np.random.randint(low=0, high=9999)
+        # !!! here set the seed manually to test the code
+        # seed_value = np.random.randint(low=0, high=9999)
+        seed_value = 20
 
         model = ChargingModel(num_cars_normal,
                               num_cars_off_peak,
@@ -50,7 +55,8 @@ if __name__ == '__main__':
                               car_charging_eff,
                               car_target_soc,
                               car_charging_algo,
-                              seed_value)
+                              seed_value,
+                              set_defection)
 
         for j in tqdm(range(num_intervals), desc='Steps', leave=False, position=1):
             model.step()

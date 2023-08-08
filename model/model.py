@@ -22,7 +22,8 @@ class ChargingModel(Model):
                  car_charging_eff: int,
                  car_target_soc: int,
                  car_charging_algo: bool,
-                 seed_value: int):
+                 seed_value: int,
+                 set_defection: bool):
         """
         Simulation for charging agents
         :num_agents: 1 up to 698
@@ -45,6 +46,9 @@ class ChargingModel(Model):
         self.car_charging_eff = car_charging_eff
         self.car_target_soc = car_target_soc
         self.car_charging_algo = car_charging_algo
+
+        # BOOL to assign defection probability
+        self.set_defection = set_defection
 
         self.id_counter = 0
 
@@ -111,7 +115,8 @@ class ChargingModel(Model):
                                       charging_eff=self.car_charging_eff,
                                       target_soc=self.car_target_soc,
                                       charging_algo=self.car_charging_algo,
-                                      seed_value=self.seed_value)
+                                      seed_value=self.seed_value,
+                                      defect=self.set_defection)
 
                 self.schedule.add(car)
 
@@ -137,7 +142,8 @@ class ChargingModel(Model):
                                              charging_eff=self.car_charging_eff,
                                              target_soc=self.car_target_soc,
                                              charging_algo=self.car_charging_algo,
-                                             seed_value=self.seed_value)
+                                             seed_value=self.seed_value,
+                                             defect=self.set_defection)
 
                 self.schedule.add(car)
 
@@ -186,7 +192,8 @@ class ChargingModel(Model):
             "plug_in_buffer": agent.plug_in_buffer,
             "target_soc_reached": agent.target_soc_reached,
             "charging_power_car": agent.charging_power_car,
-            "charging_power_station": agent.charging_power_station
+            "charging_power_station": agent.charging_power_station,
+            "defection_probability": agent.defect
         }
 
     def agent_reporter_customer(self, agent):
@@ -236,6 +243,18 @@ class ChargingModel(Model):
         car_models = np.random.choice(cars, size=size, p=distribution)
         return car_models
 
+# =============================================================================
+#     def defection(self):
+#         """function to assign defection probability"""
+#         np.random.seed(self.seed_value)
+#         if self.set_defection:
+#             defect_prob = np.random.randint(0, 1)  # very simple 0 or 1
+#             # defect_prob = 1
+#         else:
+#             defect_prob = 0
+#         return defect_prob
+#
+# =============================================================================
     def step(self):
         self.schedule.step()
         if self.schedule.steps > 0:
