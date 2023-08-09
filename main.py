@@ -10,7 +10,7 @@ import argparse
 if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
-    end_date = '2008-07-15'
+    end_date = '2008-07-19'
     # end_date = '2008-07-14'
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')
@@ -18,21 +18,21 @@ if __name__ == '__main__':
     parser.add_argument('--num_cars_normal', type=int, default=5, help='Number of normal cars')
     parser.add_argument('--num_cars_off_peak', type=int, default=0, help='Number of off-peak cars')
     parser.add_argument('--num_transformers', type=int, default=1, help='Number of transformers')
-    parser.add_argument('--num_customers', type=int, default=5, help='Number of customers')
+    parser.add_argument('--num_customers', type=int, default=3, help='Number of customers')
     args = parser.parse_args()
 
     model_runs = args.model_runs
-    num_cars_normal = args.num_cars_normal
-    num_cars_off_peak = args.num_cars_off_peak
-    num_transformers = args.num_transformers
-    num_customers = args.num_customers
+    num_cars_normal = args.num_cars_normal  # model parameter
+    num_cars_off_peak = args.num_cars_off_peak  # model parameter
+    num_transformers = args.num_transformers  # model parameter
+    num_customers = args.num_customers  # model parameter
 
     car_charging_algo = True  # False # setting to True turns on the charging interaction
 
-    car_charging_eff = 90
-    car_target_soc = 100
+    car_charging_eff = 90  # model parameter
+    car_target_soc = 100  # model parameter
 
-    set_defection = False
+    set_defection = True  # setting to true lets agents defect/override the controlled charging
 
     time_diff = pd.to_datetime(end_date) - pd.to_datetime(start_date)
     num_intervals = int(time_diff / datetime.timedelta(minutes=15))

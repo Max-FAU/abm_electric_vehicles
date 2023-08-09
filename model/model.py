@@ -158,7 +158,8 @@ class ChargingModel(Model):
             model_reporters={
                 'total_recharge_power': self.calc_total_recharge_power,
                 'total_customer_load': self.calc_total_customer_load,
-                'transformer_capacity': self.calc_transformer_capacity
+                'transformer_capacity': self.calc_transformer_capacity,
+                'defection_ratio': self.calc_defection_ratio
             },
             agent_reporters={
                 "car_data": lambda agent: self.agent_reporter_car(
@@ -193,7 +194,10 @@ class ChargingModel(Model):
             "target_soc_reached": agent.target_soc_reached,
             "charging_power_car": agent.charging_power_car,
             "charging_power_station": agent.charging_power_station,
-            "defection_probability": agent.defect
+            "defection_probability": agent.defect,
+            "wt_peer": agent.wt_peer,
+            "peer_defect": agent.peer_defect,
+            "past_defect_prob": agent.defect_past
         }
 
     def agent_reporter_customer(self, agent):
@@ -223,6 +227,18 @@ class ChargingModel(Model):
             if isinstance(agent, Transformer):
                 capacity_kw += agent.capacity_kw
         return capacity_kw
+
+    def calc_defection_ratio(self):
+        total_defect = 0
+        electric_vehicles_all = []
+        for agent in self.schedule.agents:
+            if isinstance(agent, ElectricVehicle):
+                electric_vehicles_all.append(agent)
+                if agent.defect:
+                    total_defect += 1
+
+                ratio_defectors = total_defect/len(electric_vehicles_all)
+        return ratio_defectors
 
     def generate_cars_according_to_dist(self):
         with open(CAR_VALUES_PATH, 'r') as f:

@@ -29,7 +29,9 @@ class ElectricVehicle(Agent):
                  target_soc: int,
                  charging_algo: bool,
                  seed_value: int,
-                 defect: bool):
+                 defect: bool,
+                 # TODO recency_bias:float - add this as a model level parameter,not agent level
+                 ):
 
         super().__init__(unique_id, model)
         # Initialize Agent attributes from input
@@ -45,9 +47,20 @@ class ElectricVehicle(Agent):
         self.charging_algo = charging_algo
         self.seed_value = seed_value
 
+        # ----------------------------------------------
+        # TODO work in progress section
         # Initialize Agent attributes useful for evaluation of cooperation/defection in the DR program
-        self.defect = defect  # TODO - this happens in the self.complete_dr_initialization function
+        self.defect = defect  # this happens in the self.complete_dr_initialization function
+        self.wt_peer = None  # for now, randomly set this weight in the complete_dr_initialization function
+        # this is intended as a weight to moderate the effect of the impact of other agents defecting
+        self.defect_past = []
+        self.peer_defect = None  # for now, this is set in the defection_probability_interaction
+        self.recency_bias = None
         self.complete_dr_initialization()
+        print("initialized defect prob = ", self.defect)
+        print("wt_peer = ", self.wt_peer)
+
+        # ----------------------------------------------
 
         # Initialize Agent attributes from json file car_values.json when creating an Agent
         self.car_values = dict()
@@ -169,12 +182,24 @@ class ElectricVehicle(Agent):
     def get_charging_power_dc(self):
         return self.charging_power_dc
 
+    def set_weight_peer(self):
+        np.random.seed(self.seed_value)
+        if self.defect:
+            wt_peer = self.random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])  # self.random.random()
+        else:
+            wt_peer = 0
+        self.wt_peer = wt_peer
+
     def set_defection_probability(self):
         if self.defect:
             defect_prob = self.random.randint(0, 1)
         else:
             defect_prob = 0
         self.defect = defect_prob
+
+    def set_recency_bias(self):
+        """no of past events that the agent accounts for in the decision at current timestep"""
+        self.recency_bias = 5  # TODO set this as a model parameter, do not fix value here.
 
     def complete_initialization(self):
         """
@@ -193,6 +218,8 @@ class ElectricVehicle(Agent):
         Run all functions to initialize the attributes for the car agents.
         """
         self.set_defection_probability()
+        self.set_weight_peer()
+        self.set_recency_bias()
 
     def load_matching_df(self) -> pd.DataFrame:
         """
@@ -755,20 +782,67 @@ class ElectricVehicle(Agent):
         """
         return self.final_charging_value
 
-    def interaction_charging_values(self):
-        all_agents = self.model.schedule.agents
+    def defection_probability_interaction(self, agents_all):
+        """
+        function for updating the defection probability of agents 
+        """
+        total_defect = 0
+        ele_vehs_all = []
+        for ele_veh in agents_all:
+            if isinstance(ele_veh, ElectricVehicle):
+                ele_vehs_all.append(ele_veh)
+                if ele_veh.defect:
+                    total_defect += 1
 
+        ratio_defectors = total_defect/len(ele_vehs_all)
+        #print("Ratio Defectors = ", ratio_defectors)
+        for e_veh in ele_vehs_all:
+            e_veh.defect_past.append(e_veh.defect)  # saving past decisions of agent
+            e_veh.prob_defect = e_veh.wt_peer*ratio_defectors + (1-e_veh.wt_peer)*np.mean(e_veh.defect_past)
+            # e_veh.defect = (1 if e_veh.wt_peer * ratio_defectors > 0.35 else 0)  # TODO - come up with a better way!
+            e_veh.defect = random.random() < e_veh.prob_defect  # returns 1 with a probability of e_veh.test
+            e_veh.peer_defect = ratio_defectors
+
+    def access_the_past(self):
+        """
+        function to access past values of agent defection probability
+        """
+        pass
+
+    def get_transformer_capacity(self):
+        all_agents = self.model.schedule.agents
         transformer_capacity = 0
         # GET ALL TRANSFORMER CAPACITIES FROM ALL TRANSFORMER AGENTS
         for transformer in all_agents:
             if isinstance(transformer, Transformer):
                 transformer_capacity += transformer.get_capacity_kw()
+        return transformer_capacity
 
+    def get_customer_load(self):
+        all_agents = self.model.schedule.agents
         # GET ALL LOAD FROM ALL CUSTOMER AGENTS
         customer_load = 0
         for power_customer in all_agents:
             if isinstance(power_customer, PowerCustomer):
                 customer_load += power_customer.get_current_load_kw()
+        return customer_load
+
+    def get_total_charging_value(self, ev_agents):
+        total_charging_value = 0
+        # calculate the total charging values of all car agents in the model
+        for charging_value in ev_agents:
+            if charging_value is not None:
+                total_charging_value += charging_value.get_charging_value()
+                # in the above line of code, the get_charging_value simply returns the charging_value that has
+                # previously been set in the calc_charging_value function. So here we are simply fetching the
+                # charging value. This is also a kWh value
+        return total_charging_value
+
+    def interaction_charging_values(self):
+        all_agents = self.model.schedule.agents
+
+        transformer_capacity = self.get_transformer_capacity()
+        customer_load = self.get_customer_load()
 
         # Calculate the available capacity to charge EVs
         capacity = transformer_capacity - customer_load
@@ -784,17 +858,11 @@ class ElectricVehicle(Agent):
                 if not electric_vehicle.defect:
                     electric_vehicles.append(electric_vehicle)
 
-        total_charging_value = 0
-        # calculate the total charging values of all car agents in the model
-        for charging_value in electric_vehicles:
-            if charging_value is not None:
-                total_charging_value += charging_value.get_charging_value()
-                # in the above line of code, the get_charging_value simply returns the charging_value that has
-                # previously been set in the calc_charging_value function. So here we are simply fetching the
-                # charging value. This is also a kWh value
+        total_charging_value = self.get_total_charging_value(electric_vehicles)
 
         # kw total charging power
         total_charging_power = aux.convert_kw_kwh(kwh=total_charging_value)  # converts the kWh value to kW
+
         all_priorities = []
         for prio in electric_vehicles:
             all_priorities.append(prio.get_charging_priority())
@@ -958,11 +1026,16 @@ class ElectricVehicle(Agent):
                 for ev in electric_vehicles:
                     ev.set_final_charging_value(False)
 
+        # self.defection_probability_interaction(electric_vehicles_all)
+        # for e_v in electric_vehicles_all:
+        #    print("Defection probability of EV#", e_v.unique_id, " = ", e_v.defect)
+
     def step(self):
         if self.timestamp is None:
             self.timestamp = self.start_date
         else:
             # Each step add 15 minutes
+            #self.timestamp += datetime.timedelta(minutes=15)
             self.timestamp += datetime.timedelta(minutes=15)
 
         # Set mobility data for current timestamp
@@ -986,9 +1059,11 @@ class ElectricVehicle(Agent):
             all_agents = self.model.schedule.agents
 
             all_agents_ids = []
+            ev_agents = []
             for electric_vehicle in all_agents:
                 if isinstance(electric_vehicle, ElectricVehicle):
                     all_agents_ids.append(electric_vehicle.get_unique_id())
+                    ev_agents.append(electric_vehicle)
 
             # TODO: here add a function to update the defect probability based on other agents' defect probabilities AND some randomness?
             # or should it be called within the interaction function?
@@ -999,6 +1074,14 @@ class ElectricVehicle(Agent):
             if all_agents_ids[-1] == current_agent_id:
                 # Calculate how much capacity is available for charging cars after household base load
                 self.interaction_charging_values()
+
+                # calculate new defection probability after a defection happened.
+                transformer_capacity_after_int = self.get_transformer_capacity()
+                customer_load_after_int = self.get_customer_load()
+                total_ev_charging_value_after_int = self.get_total_charging_value(ev_agents)
+                total_ev_charging_power_after_int = aux.convert_kw_kwh(kwh=total_ev_charging_value_after_int)
+                if total_ev_charging_power_after_int > (transformer_capacity_after_int - customer_load_after_int):
+                    self.defection_probability_interaction(all_agents)  # only update defection probability if overload happens
 
 
 if __name__ == '__main__':
