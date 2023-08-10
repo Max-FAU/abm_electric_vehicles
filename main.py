@@ -10,7 +10,7 @@ import argparse
 if __name__ == '__main__':
     start = timeit.default_timer()
     start_date = '2008-07-13'
-    end_date = '2008-07-19'
+    end_date = '2008-07-14'
     # end_date = '2008-07-14'
 
     parser = argparse.ArgumentParser(description='Run simulation with different parameters to generate load profiles.')

@@ -50,12 +50,15 @@ class ElectricVehicle(Agent):
         # ----------------------------------------------
         # TODO work in progress section
         # Initialize Agent attributes useful for evaluation of cooperation/defection in the DR program
-        self.defect = defect  # this happens in the self.complete_dr_initialization function
-        self.wt_peer = None  # for now, randomly set this weight in the complete_dr_initialization function
+        self.defect = defect  # 0 or 1 - the decision to defect or not, based on the probability to defect prob_defect
+        self.prob_defect = None  # [0,1] - a probability that the agent will defect
+        self.wt_peer = None  # [0,1] - represents the degree of pro-social nature
+        # for now, randomly set this weight in the complete_dr_initialization function
         # this is intended as a weight to moderate the effect of the impact of other agents defecting
-        self.defect_past = []
-        self.peer_defect = None  # for now, this is set in the defection_probability_interaction
-        self.recency_bias = None
+        self.defect_past = []  # list of past defection decisions of the agent
+        self.peer_defect = None  # share of peers that defect
+        # for now, this is set in the defection_probability_interaction
+        self.recency_bias = None  # TODO make this a model level parameter - accounts for how many of the past decisions to include in the current decision
         self.complete_dr_initialization()
         print("initialized defect prob = ", self.defect)
         print("wt_peer = ", self.wt_peer)
@@ -788,26 +791,20 @@ class ElectricVehicle(Agent):
         """
         total_defect = 0
         ele_vehs_all = []
+
+        # Calculate the share of defecting agents
         for ele_veh in agents_all:
             if isinstance(ele_veh, ElectricVehicle):
                 ele_vehs_all.append(ele_veh)
                 if ele_veh.defect:
                     total_defect += 1
-
         ratio_defectors = total_defect/len(ele_vehs_all)
-        #print("Ratio Defectors = ", ratio_defectors)
+
         for e_veh in ele_vehs_all:
+            e_veh.peer_defect = ratio_defectors
             e_veh.defect_past.append(e_veh.defect)  # saving past decisions of agent
             e_veh.prob_defect = e_veh.wt_peer*ratio_defectors + (1-e_veh.wt_peer)*np.mean(e_veh.defect_past)
-            # e_veh.defect = (1 if e_veh.wt_peer * ratio_defectors > 0.35 else 0)  # TODO - come up with a better way!
-            e_veh.defect = random.random() < e_veh.prob_defect  # returns 1 with a probability of e_veh.test
-            e_veh.peer_defect = ratio_defectors
-
-    def access_the_past(self):
-        """
-        function to access past values of agent defection probability
-        """
-        pass
+            e_veh.defect = random.random() < e_veh.prob_defect  # returns True with a probability of e_veh.test
 
     def get_transformer_capacity(self):
         all_agents = self.model.schedule.agents
